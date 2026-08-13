@@ -391,6 +391,8 @@ public:
     void createMarketOffer(uint8_t type, uint16_t itemId, uint8_t itemTier, uint16_t amount, uint64_t price, uint8_t anonymous);
     void cancelMarketOffer(uint32_t timestamp, uint16_t counter);
     void acceptMarketOffer(uint32_t timestamp, uint16_t counter, uint16_t amount);
+    void sendMarketAction(uint8_t action, uint16_t itemId, uint8_t tier);
+    void sendResourceBalance(uint8_t resourceType);
 
     // prey related
     void preyAction(uint8_t slot, uint8_t actionType, uint16_t index);

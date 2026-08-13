@@ -1827,6 +1827,22 @@ void Game::acceptMarketOffer(const uint32_t timestamp, const uint16_t counter, c
     m_protocolGame->sendMarketAcceptOffer(timestamp, counter, amount);
 }
 
+void Game::sendMarketAction(uint8_t action, uint16_t itemId, uint8_t tier)
+{
+    if (!canPerformGameAction())
+        return;
+
+    m_protocolGame->sendMarketBrowse(action, itemId, tier);
+}
+
+void Game::sendResourceBalance(uint8_t resourceType)
+{
+    if (!canPerformGameAction())
+        return;
+
+    m_protocolGame->sendResourceBalance(resourceType);
+}
+
 void Game::preyAction(const uint8_t slot, const uint8_t actionType, const uint16_t index)
 {
     if (!canPerformGameAction())

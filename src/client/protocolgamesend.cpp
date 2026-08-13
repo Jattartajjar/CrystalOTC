@@ -1501,6 +1501,14 @@ void ProtocolGame::sendMarketAcceptOffer(const uint32_t timestamp, const uint16_
     send(msg);
 }
 
+void ProtocolGame::sendResourceBalance(uint8_t resourceType)
+{
+    const auto& msg = std::make_shared<OutputMessage>();
+    msg->addU8(Proto::ClientSendResourceBalance);
+    msg->addU8(resourceType);
+    send(msg);
+}
+
 void ProtocolGame::sendPreyAction(const uint8_t slot, const uint8_t actionType, const uint16_t index)
 {
     const auto& msg = std::make_shared<OutputMessage>();

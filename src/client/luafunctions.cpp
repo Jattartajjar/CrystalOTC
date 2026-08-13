@@ -463,6 +463,8 @@ void Client::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_game", "sendStartOfflineTraining", &Game::sendStartOfflineTraining, &g_game);
     g_lua.bindSingletonFunction("g_game", "sendSelectSpellAim", &Game::sendSelectSpellAim, &g_game);
     g_lua.bindSingletonFunction("g_game", "sendTutorialChangeVocation", &Game::sendTutorialChangeVocation, &g_game);
+    g_lua.bindSingletonFunction("g_game", "sendMarketAction", &Game::sendMarketAction, &g_game);
+    g_lua.bindSingletonFunction("g_game", "sendResourceBalance", &Game::sendResourceBalance, &g_game);
 
     g_lua.registerSingletonClass("g_gameConfig");
     g_lua.bindSingletonFunction("g_gameConfig", "loadFonts", &GameConfig::loadFonts, &g_gameConfig);

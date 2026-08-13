@@ -376,6 +376,7 @@ namespace Proto
         ClientDebugReport = 232,
         ClientPreyAction = 235,
         ClientPreyRequest = 237,
+        ClientSendResourceBalance = 237, // 0xED
         ClientTransferCoins = 239,
         ClientRequestQuestLog = 240,
         ClientRequestQuestLine = 241,
