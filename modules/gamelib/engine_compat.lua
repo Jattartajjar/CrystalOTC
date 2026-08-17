@@ -426,6 +426,9 @@ if ThingType then
 	install(ThingType, "isDualWielding", function()
 		return false
 	end)
+	install(ThingType, "isCyclopediaItem", function(self)
+		return self.getCyclopediaType and self:getCyclopediaType() > 0 or false
+	end)
 end
 
 if g_client then
