@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_cyclopedia/tab/character/character.lua
+-- chunkname: @/game_cyclopedia/tab/character/character.lua
 
 local characterPanel, UI
 local CATEGORY_BASE_HEIGHT = 22
@@ -1868,16 +1868,16 @@ function Cyclopedia.loadCharacterGeneralStats(data, skills, combats)
 
 	Cyclopedia.setCharacterSkillTooltip("stamina", staminaRowTooltip)
 
-	if data.staminaMinutes > 2340 and g_game.getClientVersion() >= 1038 and player:isPremium() then
-		local text = tr("You have %s hours and %s minutes left", staminaHours, staminaMinutes) .. "\n" .. tr("Now you will gain 50%% more experience")
+	if data.staminaMinutes > 2340 then
+		local text
 
-		Cyclopedia.setCharacterSkillPercent("stamina", staminaPercent, text, "green")
-	elseif data.staminaMinutes > 2340 and g_game.getClientVersion() >= 1038 and not player:isPremium() then
-		local text = tr("You have %s hours and %s minutes left", staminaHours, staminaMinutes) .. "\n" .. tr("You will not gain 50%% more experience because you aren't premium player, now you receive only 1x experience points")
-
-		Cyclopedia.setCharacterSkillPercent("stamina", staminaPercent, text, "#C06000")
-	elseif data.staminaMinutes > 2340 and g_game.getClientVersion() < 1038 then
-		local text = tr("You have %s hours and %s minutes left", staminaHours, staminaMinutes) .. "\n" .. tr("If you are premium player, you will gain 50%% more experience")
+		if g_game.getClientVersion() >= 1038 and player:isPremium() then
+			text = tr("You have %s hours and %s minutes left", staminaHours, staminaMinutes) .. "\n" .. tr("Now you will gain 50%% more experience")
+		elseif g_game.getClientVersion() >= 1038 and not player:isPremium() then
+			text = tr("You have %s hours and %s minutes left", staminaHours, staminaMinutes) .. "\n" .. tr("You will not gain 50%% more experience because you aren't premium player, now you receive only 1x experience points")
+		else
+			text = tr("You have %s hours and %s minutes left", staminaHours, staminaMinutes) .. "\n" .. tr("If you are premium player, you will gain 50%% more experience")
+		end
 
 		Cyclopedia.setCharacterSkillPercent("stamina", staminaPercent, text, "green")
 	elseif data.staminaMinutes <= 840 then

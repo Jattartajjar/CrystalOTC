@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_skills/skills.lua
+-- chunkname: @/game_skills/skills.lua
 
 skillsWindow = nil
 skillsButton = nil
@@ -52,6 +52,7 @@ function init()
 		onTotalCapacityChange = onTotalCapacityChange,
 		onBaseCapacityChange = onBaseCapacityChange,
 		onStaminaChange = onStaminaChange,
+		onPremiumChange = onPremiumChange,
 		onOfflineTrainingChange = onOfflineTrainingChange,
 		onRegenerationChange = onRegenerationChange,
 		onSpeedChange = onSpeedChange,
@@ -153,6 +154,7 @@ function terminate()
 		onTotalCapacityChange = onTotalCapacityChange,
 		onBaseCapacityChange = onBaseCapacityChange,
 		onStaminaChange = onStaminaChange,
+		onPremiumChange = onPremiumChange,
 		onOfflineTrainingChange = onOfflineTrainingChange,
 		onRegenerationChange = onRegenerationChange,
 		onSpeedChange = onSpeedChange,
@@ -1931,16 +1933,16 @@ function onStaminaChange(localPlayer, stamina)
 
 	setSkillTooltip("stamina", rowTooltip)
 
-	if stamina > 2340 and g_game.getClientVersion() >= 1038 and localPlayer:isPremium() then
-		local text = tr("You have %s hours and %s minutes left", hours, minutes) .. "\n" .. tr("Now you will gain 50%% more experience")
+	if stamina > 2340 then
+		local text
 
-		setSkillPercent("stamina", rawPercent, text, "green")
-	elseif stamina > 2340 and g_game.getClientVersion() >= 1038 and not localPlayer:isPremium() then
-		local text = tr("You have %s hours and %s minutes left", hours, minutes) .. "\n" .. tr("You will not gain 50%% more experience because you aren't premium player, now you receive only 1x experience points")
-
-		setSkillPercent("stamina", rawPercent, text, "#C06000")
-	elseif stamina > 2340 and g_game.getClientVersion() < 1038 then
-		local text = tr("You have %s hours and %s minutes left", hours, minutes) .. "\n" .. tr("If you are premium player, you will gain 50%% more experience")
+		if g_game.getClientVersion() >= 1038 and localPlayer:isPremium() then
+			text = tr("You have %s hours and %s minutes left", hours, minutes) .. "\n" .. tr("Now you will gain 50%% more experience")
+		elseif g_game.getClientVersion() >= 1038 and not localPlayer:isPremium() then
+			text = tr("You have %s hours and %s minutes left", hours, minutes) .. "\n" .. tr("You will not gain 50%% more experience because you aren't premium player, now you receive only 1x experience points")
+		else
+			text = tr("You have %s hours and %s minutes left", hours, minutes) .. "\n" .. tr("If you are premium player, you will gain 50%% more experience")
+		end
 
 		setSkillPercent("stamina", rawPercent, text, "green")
 	elseif stamina <= 840 then
@@ -1950,6 +1952,12 @@ function onStaminaChange(localPlayer, stamina)
 	end
 
 	updateExperienceRate(localPlayer)
+end
+
+function onPremiumChange(localPlayer, isPremium)
+	if localPlayer then
+		onStaminaChange(localPlayer, localPlayer:getStamina())
+	end
 end
 
 function onOfflineTrainingChange(localPlayer, offlineTrainingTime)
