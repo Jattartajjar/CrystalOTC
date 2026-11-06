@@ -92,7 +92,7 @@ public:
         if (available <= 0)
             return {};
 
-        bytes = std::min<uint8_t>(bytes, available);
+        bytes = std::min<int>(bytes, available);
         std::vector<uint8_t> data(bytes);
         std::memcpy(data.data(), m_buffer + m_readPos, bytes);
         return data;

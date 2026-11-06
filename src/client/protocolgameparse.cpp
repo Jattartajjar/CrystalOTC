@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Copyright (c) 2010-2026 OTClient <https://github.com/edubart/otclient>
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -674,6 +674,9 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                 case Proto::GameServerOpenWheelWindow: // 0x5F
                     parseOpenWheelWindow(msg);
                     break;
+                case Proto::GameServerWheelSpellAugments: // 0x60
+                    parseWheelSpellAugments(msg);
+                    break;
                 default: {
                     const auto unreadSize = msg->getUnreadSize();
                     const auto previewSize = std::min<size_t>(unreadSize, 32);
@@ -687,7 +690,7 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                     g_logger.warning(
                         "[{}] Unhandled opcode 0x{:02X} ({}) with {} unread bytes; previous opcode: 0x{:02X} ({}); next bytes: {}",
                         g_game.getClientVersion(), opcode, opcode, unreadSize, prevOpcode, prevOpcode, hexDump.str());
-                    msg->setReadPos(msg->getMessageSize());
+                    msg->skipBytes(static_cast<uint16_t>(unreadSize));
                     break;
                 }
             }
@@ -7271,6 +7274,17 @@ void ProtocolGame::parseClientEvent(const InputMessagePtr& msg)
             g_lua.callGlobalField("g_game", "onClientEvent", type, itemId, message);
             break;
         }
+        case Otc::CLIENT_EVENT_TYPE_BOUNTY_TASK:
+        case Otc::CLIENT_EVENT_TYPE_WEEKLY_TASK: {
+            const auto count = msg->getU16();
+            g_lua.callGlobalField("g_game", "onClientEvent", type, count);
+            break;
+        }
+        case Otc::CLIENT_EVENT_TYPE_SPELL_UNLOCKED: {
+            const auto spellId = msg->getU32();
+            g_lua.callGlobalField("g_game", "onClientEvent", type, spellId);
+            break;
+        }
         default:
             break;
     }
@@ -7690,6 +7704,17 @@ void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
         usedPromotionScrolls, equipedGems, atelierGems,
         basicUpgraded, supremeUpgraded, 0 // earnedFromAchievements placeholder
     );
+}
+
+// 0x60 - parse wheel active spell augments sent on login
+void ProtocolGame::parseWheelSpellAugments(const InputMessagePtr& msg)
+{
+    const uint16_t count = msg->getU16();
+    for (uint16_t i = 0; i < count; ++i) {
+        msg->getU16(); // spellId
+        msg->getU8();  // unknown byte
+        msg->getU32(); // stage / modifier flag
+    }
 }
 
 void ProtocolGame::parseAttachedPaperdoll(const InputMessagePtr& msg) {

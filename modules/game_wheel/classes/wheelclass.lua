@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_wheel/classes/wheelclass.lua
+-- chunkname: @/game_wheel/classes/wheelclass.lua
 
 WheelOfDestiny = {}
 WheelOfDestiny.__index = WheelOfDestiny
@@ -1850,7 +1850,7 @@ function WheelOfDestiny.configureSummary()
 			widget.info:setTooltip("Increase your mitigation multiplicatively.")
 			widget.info:setVisible(true)
 		elseif t == "Life Leech" then
-			local lifeleech = convictions[4]
+			local lifeleech = convictions[6]
 
 			if not lifeleech or lifeleech.points == 0 then
 				widget:destroy()
@@ -1859,7 +1859,7 @@ function WheelOfDestiny.configureSummary()
 				widget.info:setVisible(false)
 			end
 		elseif t == "Mana Leech" then
-			local manaleech = convictions[5]
+			local manaleech = convictions[7]
 
 			if not manaleech or manaleech.points == 0 then
 				widget:destroy()
@@ -1877,6 +1877,8 @@ function WheelOfDestiny.configureSummary()
 	local f_table = {
 		"special_1",
 		"special_2",
+		"special_3",
+		"special_4",
 		"skill"
 	}
 	local hasCreated = false
@@ -1910,8 +1912,34 @@ function WheelOfDestiny.configureSummary()
 
 				hasCreated = true
 			end
-		elseif t == "skill" then
+		elseif t == "special_3" then
 			local c = convictions[3]
+
+			if not c then
+				widget:destroy()
+			else
+				widget.perk:setText(c.perk)
+				widget.value:setVisible(false)
+				widget.info:setVisible(true)
+				widget.info:setTooltip(c.tooltip)
+
+				hasCreated = true
+			end
+		elseif t == "special_4" then
+			local c = convictions[4]
+
+			if not c then
+				widget:destroy()
+			else
+				widget.perk:setText(c.perk)
+				widget.value:setVisible(false)
+				widget.info:setVisible(true)
+				widget.info:setTooltip(c.tooltip)
+
+				hasCreated = true
+			end
+		elseif t == "skill" then
+			local c = convictions[5]
 
 			if not c then
 				widget:destroy()
@@ -1931,16 +1959,11 @@ function WheelOfDestiny.configureSummary()
 	end
 
 	local f_table = {
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		"spell_1",
-		"spell_2",
-		"spell_3",
-		[9] = "spell_4",
-		[10] = "spell_5"
+		[8] = "spell_1",
+		[9] = "spell_2",
+		[10] = "spell_3",
+		[11] = "spell_4",
+		[12] = "spell_5"
 	}
 	local hasCreated = false
 
@@ -2152,10 +2175,10 @@ function WheelOfDestiny.configureSummary()
 	end
 
 	local f_table = {
-		[12] = "vessel.2",
-		[14] = "vessel.4",
-		[13] = "vessel.3",
-		[11] = "vessel.1"
+		[14] = "vessel.2",
+		[16] = "vessel.4",
+		[15] = "vessel.3",
+		[13] = "vessel.1"
 	}
 	local hasCreated = false
 
@@ -2335,7 +2358,7 @@ function WheelOfDestiny.create(playerId, canView, changeState, vocationId, point
 
 	local totalPoints = WheelOfDestiny.points + (WheelOfDestiny.extraGemPoints + WheelOfDestiny.scrollPoints)
 
-	wheelOfDestinyWindow.selection.points:setText("[7]" .. totalPoints - WheelOfDestiny.usedPoints .. " / " .. totalPoints)
+	wheelOfDestinyWindow.selection.points:setText(totalPoints - WheelOfDestiny.usedPoints .. " / " .. totalPoints)
 
 	wheelPanel:recursiveGetChildById("perkIconTopLeft").onClick = function()
 		WheelOfDestiny.onWheelPassiveClick(1)
