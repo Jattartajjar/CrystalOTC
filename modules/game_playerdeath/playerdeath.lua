@@ -1,19 +1,43 @@
-﻿-- chunkname: @/game_playerdeath/playerdeath.lua
+-- chunkname: @/game_playerdeath/playerdeath.lua
 
 deathController = Controller:new()
 
+local openStoreBlessingsOnLogin = false
+
 function deathController:onInit()
 	deathController:registerEvents(g_game, {
-		onDeath = display
+		onDeath = display,
+		onGameStart = onGameStart
 	})
 end
 
 function deathController:onTerminate()
+	openStoreBlessingsOnLogin = false
 	deathController.ui = destroyWindows()
 end
 
 function deathController:onGameEnd()
 	deathController.ui = destroyWindows()
+end
+
+function onGameStart()
+	if not openStoreBlessingsOnLogin then
+		return
+	end
+
+	openStoreBlessingsOnLogin = false
+
+	scheduleEvent(function()
+		if not g_game.isOnline() or not modules.game_store then
+			return
+		end
+
+		if modules.game_store.openStoreCategory then
+			modules.game_store.openStoreCategory("Blessings", "", 0, 1)
+		elseif modules.game_store.gameOpenStore then
+			modules.game_store.gameOpenStore()
+		end
+	end, 250)
 end
 
 function destroyWindows()
@@ -119,29 +143,25 @@ function openWindow(deathType, penalty)
 	local cancelButton = window:recursiveGetChildById("buttonCancel")
 
 	local function storeFunc()
-		if g_game.setDead then
-			g_game.setDead(false)
-		end
-
-		if modules.game_store and modules.game_store.gameOpenStore then
-			modules.game_store.gameOpenStore()
-		end
-
 		deathController.ui = destroyWindows()
+		openStoreBlessingsOnLogin = true
+		CharacterList.doLogin()
 	end
 
 	local function okFunc()
-		if g_game.setDead then
-			g_game.setDead(false)
-		end
-
 		deathController.ui = destroyWindows()
+		openStoreBlessingsOnLogin = false
+		CharacterList.doLogin()
 	end
 
 	local function cancelFunc()
-		g_game.safeLogout()
-
+		openStoreBlessingsOnLogin = false
 		deathController.ui = destroyWindows()
+		g_game.cancelLogin()
+
+		if CharacterList and CharacterList.showAgain then
+			CharacterList.showAgain()
+		end
 	end
 
 	window.onEnter = okFunc
