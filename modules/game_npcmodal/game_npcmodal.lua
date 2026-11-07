@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_npcmodal/game_npcmodal.lua
+-- chunkname: @/game_npcmodal/game_npcmodal.lua
 local updateNpcTradePlayerBalanceLabel -- forward declaration (used before its declaration in the decompiled file)
 
 mainNpcModal = nil
@@ -210,6 +210,16 @@ local function playerHasLootPouch()
 		return true
 	end
 
+	if playerItems and (playerItems[LOOT_POUCH_ITEM_ID] or 0) > 0 then
+		return true
+	end
+
+	for _, entry in ipairs(SellNpcTradeItems or {}) do
+		if entry.item and entry.item:getId() == LOOT_POUCH_ITEM_ID then
+			return true
+		end
+	end
+
 	return next(lootPouchItems) ~= nil
 end
 
@@ -250,7 +260,7 @@ local function getEquippedItemCounts()
 	return counts
 end
 
-local function getSellablePlayerItemCount(itemId)
+local function getSellablePlayerItemCount(itemId, equippedCounts)
 	local total = playerItems and playerItems[itemId] or 0
 
 	if total <= 0 then
@@ -261,7 +271,7 @@ local function getSellablePlayerItemCount(itemId)
 		return total
 	end
 
-	local equipped = getEquippedItemCounts()[itemId] or 0
+	local equipped = (equippedCounts or getEquippedItemCounts())[itemId] or 0
 	local effective = total - equipped
 
 	if effective < 0 then
@@ -564,6 +574,22 @@ local function loadSellAllIgnoreList()
 end
 
 local refreshNpcTradeItemList, revalidateNpcTradeQuantity
+local pendingRefreshTradeListEvent = nil
+
+local function scheduleRefreshNpcTradeItemList()
+	if pendingRefreshTradeListEvent then
+		return
+	end
+
+	pendingRefreshTradeListEvent = addEvent(function()
+		pendingRefreshTradeListEvent = nil
+
+		if npcModalTrade and mainNpcModal and not mainNpcModal:isDestroyed() then
+			refreshNpcTradeItemList()
+			revalidateNpcTradeQuantity()
+		end
+	end)
+end
 
 local function onNpcModalFreeCapacityChange(player, freeCapacity)
 	if not npcModalTrade then
@@ -586,8 +612,7 @@ local function onNpcModalInventoryChange(player, slot, item, oldItem)
 		return
 	end
 
-	refreshNpcTradeItemList()
-	revalidateNpcTradeQuantity()
+	scheduleRefreshNpcTradeItemList()
 	refreshSellAllButtonVisibility()
 
 	if not isNpcTradeGoldCurrency() and npcTradeCurrencyId ~= 0 then
@@ -841,7 +866,10 @@ local function refreshNpcTradeCurrencyState()
 	end
 
 	updateNpcTradePlayerBalanceLabel()
-	refreshNpcTradeItemList()
+
+	if buyButton and buyButton:isOn() then
+		scheduleRefreshNpcTradeItemList()
+	end
 end
 
 local function setupNpcTradeQuantityBindings()
@@ -1032,92 +1060,135 @@ local function showTradeWindowChildrens()
 end
 
 function refreshNpcTradeItemList()
+	if refreshNpcTradeEvent then
+		removeEvent(refreshNpcTradeEvent)
+		refreshNpcTradeEvent = nil
+	end
+
+	if not itemsSelling or itemsSelling:isDestroyed() then
+		return
+	end
+
 	local panel = itemsSelling:getChildById("npcTradeItemsPanel")
 
-	if panel then
-		panel:destroyChildren()
+	if not panel or panel:isDestroyed() then
+		return
 	end
 
 	local buying = buyButton:isOn()
 	local items = buying and BuyNpcTradeItems or SellNpcTradeItems
+	local equippedCounts = (not buying and not sellEquipped) and getEquippedItemCounts() or nil
+	local balance = buying and getNpcTradeBalance() or 0
 	local rows = {}
 
 	for _, entry in ipairs(items) do
 		local price = buying and entry.buyPrice or entry.sellPrice
+		local lowerName = entry.lowerName or (entry.name or ""):lower()
 		local show = true
 
 		if npcTradeFilterText ~= "" then
-			local haystack = (entry.name or ""):lower()
-
-			show = haystack:find(npcTradeFilterText, 1, true) ~= nil
+			show = lowerName:find(npcTradeFilterText, 1, true) ~= nil
 		end
 
 		if show then
+			local itemId = entry.id or (entry.item and entry.item:getId()) or 0
+			local sellableCount = not buying and getSellablePlayerItemCount(itemId, equippedCounts) or 0
+
 			table.insert(rows, {
 				entry = entry,
-				price = price
+				price = price,
+				itemId = itemId,
+				lowerName = lowerName,
+				sellableCount = sellableCount,
+				hasSellable = sellableCount > 0
 			})
 		end
 	end
 
-	if sortByName then
-		table.sort(rows, function(a, b)
-			local na = (a.entry.name or ""):lower()
-			local nb = (b.entry.name or ""):lower()
+	table.sort(rows, function(a, b)
+		if not buying and a.hasSellable ~= b.hasSellable then
+			return a.hasSellable
+		end
 
-			if na ~= nb then
-				return na < nb
+		if sortByName then
+			if a.lowerName ~= b.lowerName then
+				return a.lowerName < b.lowerName
 			end
-
-			return (a.entry.item:getId() or 0) < (b.entry.item:getId() or 0)
-		end)
-	elseif sortByPrice then
-		table.sort(rows, function(a, b)
-			return a.price < b.price
-		end)
-	elseif sortByWeight then
-		table.sort(rows, function(a, b)
-			return a.entry.weight < b.entry.weight
-		end)
-	end
-
-	if not buying then
-		table.sort(rows, function(a, b)
-			local idA, idB = a.entry.item:getId(), b.entry.item:getId()
-			local hasA = getSellablePlayerItemCount(idA) > 0
-			local hasB = getSellablePlayerItemCount(idB) > 0
-
-			if hasA and not hasB then
-				return true
-			elseif not hasA and hasB then
-				return false
-			end
-
-			if sortByName then
-				local na = (a.entry.name or ""):lower()
-				local nb = (b.entry.name or ""):lower()
-
-				if na ~= nb then
-					return na < nb
-				end
-
-				return idA < idB
-			elseif sortByPrice then
+		elseif sortByPrice then
+			if a.price ~= b.price then
 				return a.price < b.price
-			elseif sortByWeight then
-				return a.entry.weight < b.entry.weight
 			end
+		elseif sortByWeight then
+			local wa = a.entry.weight or 0
+			local wb = b.entry.weight or 0
 
-			return idA < idB
-		end)
-	end
+			if wa ~= wb then
+				return wa < wb
+			end
+		end
 
-	local selectedBox
+		return a.itemId < b.itemId
+	end)
 
-	for _, row in ipairs(rows) do
+	local existingChildren = panel:getChildren()
+	local selectedBox = nil
+
+	for i, row in ipairs(rows) do
 		local entry = row.entry
 		local price = row.price
-		local box = g_ui.createWidget("NpcItemBox", panel)
+		local box = existingChildren[i]
+
+		if not box then
+			box = g_ui.createWidget("NpcItemBox", panel)
+			box._icon = box:getChildById("itemIcon")
+			box._nameLbl = box:getChildById("nameLabel")
+			box._infoLbl = box:getChildById("infoLabel")
+
+			local function onRowMousePress(widget, mousePos, mouseButton)
+				local currentEntry = box._rowEntry
+				local currentPrice = box._rowPrice
+
+				if not currentEntry then
+					return false
+				end
+
+				if mouseButton ~= MouseLeftButton then
+					if mouseButton == MouseRightButton then
+						npcTradeLookThing = currentEntry.item
+
+						showMenuFilters(true)
+					end
+
+					return false
+				end
+
+				npcTradeSelectedEntry = currentEntry
+
+				applyNpcTradeItem2Preview(currentEntry, currentPrice)
+				setNpcTradeRowHighlight(panel, box)
+
+				return true
+			end
+
+			box.onMousePress = onRowMousePress
+
+			if box._icon then
+				box._icon.onMousePress = onRowMousePress
+			end
+
+			if box._nameLbl then
+				box._nameLbl.onMousePress = onRowMousePress
+			end
+
+			if box._infoLbl then
+				box._infoLbl.onMousePress = onRowMousePress
+			end
+		elseif not box:isVisible() then
+			box:show()
+		end
+
+		box._rowEntry = entry
+		box._rowPrice = price
 
 		if box.setBackgroundColor then
 			box:setBackgroundColor("#00000000")
@@ -1127,73 +1198,57 @@ function refreshNpcTradeItemList()
 			selectedBox = box
 		end
 
-		local icon = box:getChildById("itemIcon")
+		local icon = box._icon or box:getChildById("itemIcon")
 
-		if icon then
-			setNpcTradeItemIcon(icon, entry.item)
+		if icon and box._lastItem ~= entry.item then
+			box._lastItem = entry.item
+			icon:setItem(entry.item)
 		end
 
-		local nameLbl = box:getChildById("nameLabel")
-		local infoLbl = box:getChildById("infoLabel")
-		local entryId = entry.item:getId()
-		local sellableCount = not buying and getSellablePlayerItemCount(entryId) or 0
-		local disabled = false
-
-		if not buying then
-			disabled = sellableCount <= 0
-		elseif buying and price > getNpcTradeBalance() then
-			disabled = true
-		end
+		local nameLbl = box._nameLbl or box:getChildById("nameLabel")
+		local infoLbl = box._infoLbl or box:getChildById("infoLabel")
+		local disabled = buying and (price > balance) or (not buying and not row.hasSellable)
+		local textColor = disabled and "#707070" or "#c0c0c0"
 
 		if nameLbl then
-			nameLbl:setText(shortenNpcTradeText(entry.name or "", 26))
+			local shortName = entry.shortName or shortenNpcTradeText(entry.name or "", 26)
 
-			if disabled then
-				nameLbl:setColor("#707070")
+			if box._lastNameText ~= shortName then
+				box._lastNameText = shortName
+				nameLbl:setText(shortName)
+			end
+
+			if box._lastTextColor ~= textColor then
+				nameLbl:setColor(textColor)
 			end
 		end
 
 		if infoLbl then
-			local line = tr("Price %d, %.2f oz", price, entry.weight or 0)
+			local infoText = buying and entry.buyInfoText or entry.sellInfoText
 
-			infoLbl:setText(shortenNpcTradeText(line, 36))
+			if not infoText then
+				infoText = shortenNpcTradeText(tr("Price %d, %.2f oz", price, entry.weight or 0), 36)
+			end
 
-			if disabled then
-				infoLbl:setColor("#707070")
+			if box._lastInfoText ~= infoText then
+				box._lastInfoText = infoText
+				infoLbl:setText(infoText)
+			end
+
+			if box._lastTextColor ~= textColor then
+				infoLbl:setColor(textColor)
 			end
 		end
 
-		local function onRowMousePress(widget, mousePos, mouseButton)
-			if mouseButton ~= MouseLeftButton then
-				if mouseButton == MouseRightButton then
-					npcTradeLookThing = entry.item
+		box._lastTextColor = textColor
+	end
 
-					showMenuFilters(true)
-				end
+	for i = #rows + 1, #existingChildren do
+		local extraBox = existingChildren[i]
 
-				return false
-			end
-
-			npcTradeSelectedEntry = entry
-
-			applyNpcTradeItem2Preview(entry, price)
-			setNpcTradeRowHighlight(panel, box)
-
-			return true
-		end
-
-		box.onMousePress = onRowMousePress
-
-		if icon then
-			icon.onMousePress = onRowMousePress
-		end
-
-		if nameLbl then
-			nameLbl.onMousePress = onRowMousePress
-		end
-
-		if infoLbl then
-			infoLbl.onMousePress = onRowMousePress
+		if extraBox and not extraBox:isDestroyed() and extraBox:isVisible() then
+			extraBox._rowEntry = nil
+			extraBox:hide()
 		end
 	end
 
@@ -1943,23 +1998,40 @@ function sendNpcTrade(items, currencyId)
 
 	if items and #items > 0 then
 		for i, itemData in ipairs(items) do
-			if itemData[4] > 0 then
+			local itemObj = itemData[1]
+			local itemId = itemObj and itemObj:getId() or 0
+			local itemName = itemData[2] or ""
+			local lowerName = itemName:lower()
+			local shortName = shortenNpcTradeText(itemName, 26)
+			local weight = itemData[3] / 100
+			local buyPrice = itemData[4]
+			local sellPrice = itemData[5]
+
+			if buyPrice > 0 then
 				table.insert(BuyNpcTradeItems, {
-					item = itemData[1],
-					name = itemData[2],
-					weight = itemData[3] / 100,
-					buyPrice = itemData[4],
-					sellPrice = itemData[5]
+					item = itemObj,
+					id = itemId,
+					name = itemName,
+					lowerName = lowerName,
+					shortName = shortName,
+					weight = weight,
+					buyPrice = buyPrice,
+					sellPrice = sellPrice,
+					buyInfoText = shortenNpcTradeText(tr("Price %d, %.2f oz", buyPrice, weight), 36)
 				})
 			end
 
-			if itemData[5] > 0 then
+			if sellPrice > 0 then
 				table.insert(SellNpcTradeItems, {
-					item = itemData[1],
-					name = itemData[2],
-					weight = itemData[3] / 100,
-					buyPrice = itemData[4],
-					sellPrice = itemData[5]
+					item = itemObj,
+					id = itemId,
+					name = itemName,
+					lowerName = lowerName,
+					shortName = shortName,
+					weight = weight,
+					buyPrice = buyPrice,
+					sellPrice = sellPrice,
+					sellInfoText = shortenNpcTradeText(tr("Price %d, %.2f oz", sellPrice, weight), 36)
 				})
 			end
 		end
@@ -2031,30 +2103,33 @@ function onPlayerGoods(money, items, lootPouch)
 	lootPouch = lootPouch or {}
 
 	for _, data in pairs(items) do
-		local id = data[1]
-		local amount = data[2]
+		local ptr = data[1]
+		local id = ptr and ptr.getId and ptr:getId() or tonumber(ptr)
+		local amount = tonumber(data[2]) or 0
 
-		if not playerItems[id] then
-			playerItems[id] = amount
-		else
-			playerItems[id] = playerItems[id] + amount
+		if id then
+			playerItems[id] = (playerItems[id] or 0) + amount
 		end
 	end
 
 	lootPouchItems = {}
 
 	for _, data in pairs(lootPouch) do
-		local id = data[1]
-		local amount = data[2]
+		local ptr = data[1]
+		local id = ptr and ptr.getId and ptr:getId() or tonumber(ptr)
+		local amount = tonumber(data[2]) or 0
 
-		if not lootPouchItems[id] then
-			lootPouchItems[id] = amount
-		else
-			lootPouchItems[id] = lootPouchItems[id] + amount
+		if id then
+			lootPouchItems[id] = (lootPouchItems[id] or 0) + amount
 		end
 	end
 
 	refreshSellAllButtonVisibility()
+
+	if npcModalTrade then
+		scheduleRefreshNpcTradeItemList()
+		revalidateNpcTradeQuantity()
+	end
 end
 
 local function handleSearchField()
@@ -2291,62 +2366,64 @@ function closeSellAllWindow()
 	setWindowOpacity(1)
 end
 
+local sellAllEvent = nil
+local lastSellAllTime = 0
+local SELL_ALL_COOLDOWN_MS = 450
+
 function openSellAllWindow()
-	mainNpcModal:hide()
-	npcOutfit:hide()
-	multiNpc:hide()
-	npcNameLabel:hide()
-	hideTradeWindowChildrens()
-	loadSellAllIgnoreList()
-	refreshSellAllModalLists()
-	sellAllModal:show()
-	sellAllModal:raise()
-	sellAllModal:focus()
-
-	local goldBalancePanel = sellAllModal:getChildById("goldBalancePanel")
-	local goldBalanceValue = goldBalancePanel:getChildById("value")
-
-	goldBalanceValue:setText(formatNumberWithCommas(getPlayerMoney()))
+	sendSellAll()
 end
 
 function sendSellAll()
-	local protocolGame = g_game.getProtocolGame()
-
-	if not protocolGame then
+	if not g_game.isOnline() then
 		return
 	end
 
-	local tempSellAllItems = {}
+	if sellAllEvent then
+		removeEvent(sellAllEvent)
+		sellAllEvent = nil
+	end
 
-	for itemId, _ in pairs(lootPouchItems) do
-		if sellAllIgnoredItems[itemId] == nil or sellAllIgnoredItems[itemId] == false then
-			tempSellAllItems[itemId] = lootPouchItems[itemId]
+	local pouchOfferItem = nil
+
+	for _, entry in ipairs(SellNpcTradeItems or {}) do
+		local entryName = entry.lowerName or tostring(entry.name or ""):lower()
+		local entryId = entry.id or (entry.item and entry.item:getId())
+
+		if entryId == LOOT_POUCH_ITEM_ID or entryName == "all loot in pouch" then
+			pouchOfferItem = entry.item
+			break
 		end
 	end
 
-	local count = 0
-
-	for itemId, _ in pairs(tempSellAllItems) do
-		count = count + 1
+	if not pouchOfferItem then
+		pouchOfferItem = Item.create(LOOT_POUCH_ITEM_ID, 1)
 	end
 
-	if count == 0 then
-		return
+	local count = (playerItems and playerItems[LOOT_POUCH_ITEM_ID]) or 1
+	if count < 1 then
+		count = 1
 	end
 
-	local msg = OutputMessage.create()
+	local now = g_clock.millis()
+	local elapsed = now - lastSellAllTime
 
-	msg:addByte(ClientOpcodes.ClientOtcOpCodes)
-	msg:addByte(OtcOpCode.PARSE_SELL_ALL)
-	msg:addU16(count)
+	if elapsed >= SELL_ALL_COOLDOWN_MS then
+		lastSellAllTime = now
+		g_game.sellItem(pouchOfferItem, count, not sellEquipped)
+	else
+		local delay = SELL_ALL_COOLDOWN_MS - elapsed
+		sellAllEvent = scheduleEvent(function()
+			sellAllEvent = nil
 
-	for itemId, amount in pairs(tempSellAllItems) do
-		msg:addU16(itemId)
-		msg:addU32(amount)
+			if g_game.isOnline() and pouchOfferItem then
+				lastSellAllTime = g_clock.millis()
+				g_game.sellItem(pouchOfferItem, count, not sellEquipped)
+			end
+		end, delay)
 	end
 
-	protocolGame:send(msg)
-	addEvent(function()
+	if sellAllModal and sellAllModal:isVisible() then
 		closeSellAllWindow()
-	end, 100)
+	end
 end

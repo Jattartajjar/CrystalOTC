@@ -1,4 +1,4 @@
-﻿-- chunkname: @/corelib/http.lua
+-- chunkname: @/corelib/http.lua
 
 HTTP = {
 	enableTimeOut = false,
@@ -210,6 +210,13 @@ function HTTP.onGet(operationId, url, err, data)
 			return json.decode(data)
 		end)
 
+		if not status and data then
+			local jsonFallback = data:match("{.*}")
+			if jsonFallback then
+				status, result = pcall(json.decode, jsonFallback)
+			end
+		end
+
 		if not status then
 			err = "JSON ERROR: " .. result
 
@@ -251,6 +258,13 @@ function HTTP.onPost(operationId, url, err, data)
 		end
 
 		local status, result = pcall(json.decode, data)
+
+		if not status and data then
+			local jsonFallback = data:match("{.*}")
+			if jsonFallback then
+				status, result = pcall(json.decode, jsonFallback)
+			end
+		end
 
 		if not status then
 			err = "JSON ERROR: " .. result
