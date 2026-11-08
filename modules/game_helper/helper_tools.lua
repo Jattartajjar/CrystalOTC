@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_helper/helper_tools.lua
+-- chunkname: @/game_helper/helper_tools.lua
 
 HelperTools = HelperTools or {}
 
@@ -1497,25 +1497,64 @@ local function runAutoAmmo(force)
 	runAutoAmmoBurst(AUTO_AMMO_ACTIONS_PER_CYCLE)
 end
 
+local function useConvertibleCoinStack(item)
+	if not item then
+		return
+	end
+
+	if item.isMultiUse and item:isMultiUse() then
+		g_game.useWith(item, item)
+	else
+		g_game.use(item)
+	end
+end
+
 local function findConvertibleCoinStack(lp, itemId)
-	if not lp or not lp.getItems then
+	if not lp then
 		return nil
 	end
 
-	local items = lp:getItems(itemId)
+	if lp.getInventoryItem then
+		local slotFirst = InventorySlotFirst or 1
+		local slotLast = InventorySlotLast or 10
 
-	for i = 1, #items do
-		local item = items[i]
+		for slot = slotFirst, slotLast do
+			local item = lp:getInventoryItem(slot)
 
-		if item and item:getCount() >= CONVERT_STACK_SIZE then
-			return item
+			if item and item:getId() == itemId and item:getCount() >= CONVERT_STACK_SIZE then
+				return item
+			end
+		end
+	end
+
+	if g_game.getContainers then
+		for _, container in pairs(g_game.getContainers()) do
+			if container and container.getItems then
+				for _, item in pairs(container:getItems()) do
+					if item and item:getId() == itemId and item:getCount() >= CONVERT_STACK_SIZE then
+						return item
+					end
+				end
+			end
+		end
+	end
+
+	if lp.getItems then
+		local items = lp:getItems(itemId)
+
+		for i = 1, #items do
+			local item = items[i]
+
+			if item and item:getCount() >= CONVERT_STACK_SIZE then
+				return item
+			end
 		end
 	end
 
 	return nil
 end
 
-local function runChangeGold()
+local function runChangeGold(force)
 	if not isEnabled("toolsChangeGoldCheckBox") then
 		return
 	end
@@ -1526,22 +1565,21 @@ local function runChangeGold()
 
 	local lp = g_game.getLocalPlayer()
 
-	if not lp or not lp.getItems then
+	if not lp then
 		return
 	end
 
 	local now = g_clock.millis()
 
-	if now < lastChangeGoldMs + CHANGE_GOLD_INTERVAL_MS then
+	if not force and now < lastChangeGoldMs + CHANGE_GOLD_INTERVAL_MS then
 		return
 	end
-
-	lastChangeGoldMs = now
 
 	local goldStack = findConvertibleCoinStack(lp, GOLD_COIN_ID)
 
 	if goldStack then
-		g_game.use(goldStack)
+		lastChangeGoldMs = now
+		useConvertibleCoinStack(goldStack)
 
 		return
 	end
@@ -1549,7 +1587,8 @@ local function runChangeGold()
 	local platinumStack = findConvertibleCoinStack(lp, PLATINUM_COIN_ID)
 
 	if platinumStack then
-		g_game.use(platinumStack)
+		lastChangeGoldMs = now
+		useConvertibleCoinStack(platinumStack)
 	end
 end
 
@@ -1795,10 +1834,14 @@ function HelperTools.terminate()
 	toolsUiLanguage = "en"
 end
 
-function HelperTools.onChangeGoldChange(_, _)
-	if ctx and ctx.saveConfig then
-		ctx.saveConfig()
+function HelperTools.onChangeGoldChange(_, on)
+	if on then
+		addEvent(function()
+			runChangeGold(true)
+		end)
 	end
+
+	autoSave()
 end
 
 function HelperTools.onEatFoodChange(_, _)

@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_interface/gameinterface.lua
+-- chunkname: @/game_interface/gameinterface.lua
 local closeCountWindow -- forward declaration (used before its declaration in the decompiled file)
 
 gameRootPanel = nil
@@ -1285,13 +1285,17 @@ local function addUseThingMenuOptions(menu, thing, shortcuts)
 				g_game.open(thing)
 			end, openShortcut)
 		end
-	elseif thing:isMultiUse() then
+	elseif thing:isMultiUse() and not (thing:isItem() and (thing:getId() == 3031 or thing:getId() == 3035 or thing:getId() == 3043)) then
 		menu:addOption(tr("Use with ..."), function()
 			startUseWith(thing)
 		end, useWithShortcut)
 	else
 		menu:addOption(tr("Use"), function()
-			g_game.use(thing)
+			if thing:isItem() and (thing:getId() == 3031 or thing:getId() == 3035 or thing:getId() == 3043) and thing:isMultiUse() then
+				g_game.useWith(thing, thing)
+			else
+				g_game.use(thing)
+			end
 		end, useShortcut)
 	end
 
@@ -2734,6 +2738,28 @@ local function handleContainerOrCorpse(thing, quickLoot)
 	return true
 end
 
+local INSTANT_USE_COIN_IDS = {
+	[3031] = true,
+	[3035] = true,
+	[3043] = true
+}
+
+local function isInstantUseCoin(thing)
+	return thing and thing.isItem and thing:isItem() and INSTANT_USE_COIN_IDS[thing:getId()] == true
+end
+
+local function useThingDirectly(thing)
+	if not thing then
+		return
+	end
+
+	if isInstantUseCoin(thing) and thing:isMultiUse() then
+		g_game.useWith(thing, thing)
+	else
+		g_game.use(thing)
+	end
+end
+
 local function handleUseThing(thing, quickLootContainers)
 	if not thing then
 		return false
@@ -2747,12 +2773,12 @@ local function handleUseThing(thing, quickLootContainers)
 
 	if thing:isContainer() or thing:isLyingCorpse() then
 		return handleContainerOrCorpse(thing, quickLootContainers)
-	elseif thing:isMultiUse() then
+	elseif thing:isMultiUse() and not isInstantUseCoin(thing) then
 		startUseWith(thing)
 
 		return true
 	else
-		g_game.use(thing)
+		useThingDirectly(thing)
 
 		return true
 	end
@@ -2830,7 +2856,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
 					end
 
 					return true
-				elseif effectiveUseThing:isMultiUse() then
+				elseif effectiveUseThing:isMultiUse() and not isInstantUseCoin(effectiveUseThing) then
 					startUseWith(effectiveUseThing)
 
 					return true
@@ -2904,7 +2930,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
 					end
 
 					return true
-				elseif effectiveUseThing:isMultiUse() then
+				elseif effectiveUseThing:isMultiUse() and not isInstantUseCoin(effectiveUseThing) then
 					startUseWith(effectiveUseThing)
 
 					return true
@@ -2933,7 +2959,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
 				end
 
 				return true
-			elseif effectiveUseThing:isMultiUse() then
+			elseif effectiveUseThing:isMultiUse() and not isInstantUseCoin(effectiveUseThing) then
 				startUseWith(effectiveUseThing)
 
 				return true
