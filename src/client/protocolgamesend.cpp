@@ -678,19 +678,25 @@ void ProtocolGame::sendChangeFightModes(const Otc::FightModes fightMode, const O
 {
     const auto& msg = std::make_shared<OutputMessage>();
     msg->addU8(Proto::ClientChangeFightModes);
+
     if (g_game.getClientVersion() >= 1530) {
         // 15.25: fight mode byte removed; wire = [chase][secure][pvpMode][junk]
         msg->addU8(chaseMode);
         msg->addU8(safeFight);
         msg->addU8(pvpMode);
         msg->addU8(0); // junk tail byte for Cipsoft-client wire parity; server never reads it
+    } else if (g_game.getClientVersion() >= 1525) {
+        msg->addU8(chaseMode);
+        msg->addU8(safeFight);
     } else {
         msg->addU8(fightMode);
         msg->addU8(chaseMode);
         msg->addU8(safeFight);
+
         if (g_game.getFeature(Otc::GamePVPMode))
             msg->addU8(pvpMode);
     }
+
     send(msg);
 }
 
