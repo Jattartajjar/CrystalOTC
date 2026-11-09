@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_cyclopedia/tab/bestiary/bestiary.lua
+-- chunkname: @/game_cyclopedia/tab/bestiary/bestiary.lua
 
 local UI
 local STAGES = {
@@ -863,6 +863,18 @@ local function navigateBackFromCreature()
 
 	creatureDetailShowToken = creatureDetailShowToken + 1
 	Cyclopedia.Bestiary.DeferCreatureUI = false
+
+	if Cyclopedia.Bestiary.OpenedFromSearch and Cyclopedia.Bestiary.Search and next(Cyclopedia.Bestiary.Search) then
+		Cyclopedia.Bestiary.OpenedFromSearch = false
+		Cyclopedia.Bestiary.Stage = STAGES.SEARCH
+		Cyclopedia.Bestiary.Page = Cyclopedia.Bestiary.LastSearchPage or 1
+
+		Cyclopedia.onStageChange()
+
+		return
+	end
+
+	Cyclopedia.Bestiary.OpenedFromSearch = false
 	Cyclopedia.Bestiary.Search = {}
 
 	local target = Cyclopedia.Bestiary.ReturnTarget
@@ -1079,6 +1091,29 @@ local function resetCreatureInfoPanel()
 		info[resists[i]]:removeTooltip()
 	end
 
+	Cyclopedia.SetBestiaryStars(0)
+	Cyclopedia.SetBestiaryDiamonds(0)
+	Cyclopedia.SetBestiaryProgress(60, info.ProgressBack, info.ProgressBack33, info.ProgressBack55, 0, 1, 1, 1, 61)
+	info.ProgressValue:setText("0")
+	info.ProgressBorder1:removeTooltip()
+	info.ProgressBorder2:removeTooltip()
+	info.ProgressBorder3:removeTooltip()
+
+	info.Value1:setText("?")
+	info.Value2:setText("?")
+	info.Value3:setText("?")
+	info.Value4:setText("?")
+	info.Value5:setText("?")
+	info.BonusValue:setText("?")
+
+	if info.AttackMode then
+		info.AttackMode:setImageSource("")
+		info.AttackMode:setText("?")
+		info.AttackMode:setFont("verdana-11px-monochrome")
+		info.AttackMode:setColor("#C0C0C0")
+		info.AttackMode:setSize("9 9")
+	end
+
 	info.AnimusMastery:setVisible(false)
 	info.AnimusMastery:removeTooltip()
 
@@ -1174,6 +1209,13 @@ local function openCreatureDetail(raceId, category)
 	creatureDetailShowToken = creatureDetailShowToken + 1
 
 	local token = creatureDetailShowToken
+
+	if Cyclopedia.Bestiary.Stage == STAGES.SEARCH and Cyclopedia.Bestiary.Search and next(Cyclopedia.Bestiary.Search) then
+		Cyclopedia.Bestiary.OpenedFromSearch = true
+		Cyclopedia.Bestiary.LastSearchPage = Cyclopedia.Bestiary.Page or 1
+	elseif Cyclopedia.Bestiary.Stage ~= STAGES.CREATURE then
+		Cyclopedia.Bestiary.OpenedFromSearch = false
+	end
 
 	Cyclopedia.Bestiary.DeferCreatureUI = true
 	Cyclopedia.Bestiary.Stage = STAGES.CREATURE
@@ -1311,6 +1353,8 @@ local function resetBestiaryViewState()
 	Cyclopedia.Bestiary.Page = 1
 	Cyclopedia.Bestiary.Search = {}
 	Cyclopedia.Bestiary.SearchPending = false
+	Cyclopedia.Bestiary.OpenedFromSearch = false
+	Cyclopedia.Bestiary.LastSearchPage = nil
 	Cyclopedia.Bestiary.DeferCreatureUI = false
 	Cyclopedia.Bestiary.ActiveCreatureRaceId = nil
 	Cyclopedia.Bestiary.PendingPageRaceId = nil
@@ -1337,8 +1381,12 @@ function Cyclopedia.clearBestiaryUI(resetState)
 	UI = nil
 end
 
-function Cyclopedia.loadBestiaryOverview(name, creatures, animusMasteryPoints)
-	if name and name ~= "Search" and name ~= "Result" then
+function Cyclopedia.loadBestiaryOverview(name, creatures, masteryPoints)
+	if masteryPoints and masteryPoints > 0 then
+		animusMasteryPoints = masteryPoints
+	end
+
+	if name and name ~= "" and name ~= "Search" and name ~= "Result" then
 		Cyclopedia.Bestiary.OverviewCache = Cyclopedia.Bestiary.OverviewCache or {}
 		Cyclopedia.Bestiary.OverviewCache[name] = creatures
 	end
@@ -1349,14 +1397,10 @@ function Cyclopedia.loadBestiaryOverview(name, creatures, animusMasteryPoints)
 		return
 	end
 
-	if name == "Search" or name == "Result" then
+	if not name or name == "" or name == "Search" or name == "Result" then
 		Cyclopedia.loadBestiarySearchCreatures(creatures)
 	else
 		Cyclopedia.loadBestiaryCreatures(creatures, name)
-	end
-
-	if animusMasteryPoints and animusMasteryPoints > 0 then
-		-- block empty
 	end
 end
 
@@ -1527,6 +1571,8 @@ function Cyclopedia.SetBestiaryProgress(fitCenter, firstBar, secondBar, thirdBar
 end
 
 function Cyclopedia.SetBestiaryStars(value)
+	value = math.max(0, math.min(5, tonumber(value) or 0))
+
 	local starFill = UI.ListBase.CreatureInfo.StarFill
 
 	for i = 1, 5 do
@@ -1539,6 +1585,7 @@ function Cyclopedia.SetBestiaryStars(value)
 end
 
 function Cyclopedia.SetBestiaryDiamonds(value)
+	value = math.max(0, math.min(4, tonumber(value) or 0))
 	UI.ListBase.CreatureInfo.DiamondFill:setWidth(value * 11)
 end
 
@@ -1694,9 +1741,10 @@ function Cyclopedia.loadBestiarySelectedCreature(data)
 
 	local occurence = {
 		[0] = 1,
-		2,
-		3,
-		4
+		[1] = 2,
+		[2] = 3,
+		[3] = 4,
+		[4] = 4
 	}
 	local raceData = g_things.getRaceData(data.id)
 	local formattedName = raceData.name:gsub("(%l)(%w*)", function(first, rest)
@@ -1704,8 +1752,15 @@ function Cyclopedia.loadBestiarySelectedCreature(data)
 	end)
 
 	UI.ListBase.CreatureInfo:setText(formattedName)
-	Cyclopedia.SetBestiaryDiamonds(occurence[data.ocorrence])
-	Cyclopedia.SetBestiaryStars(data.difficulty)
+
+	if (data.currentLevel or 0) > 0 then
+		Cyclopedia.SetBestiaryDiamonds(occurence[data.ocorrence] or 1)
+		Cyclopedia.SetBestiaryStars(data.difficulty or 0)
+	else
+		Cyclopedia.SetBestiaryDiamonds(0)
+		Cyclopedia.SetBestiaryStars(0)
+	end
+
 	UI.ListBase.CreatureInfo.LeftBase.Sprite:setOutfit(raceData.outfit)
 	applyBestiaryCreaturePreview(UI.ListBase.CreatureInfo.LeftBase.Sprite)
 	UI.ListBase.CreatureInfo.LeftBase.Sprite:getCreature():setStaticWalking(1000)
@@ -1761,25 +1816,35 @@ function Cyclopedia.loadBestiarySelectedCreature(data)
 		"/game_cyclopedia/images/bestiary/icons/monster-icon-ranged.png",
 		"/game_cyclopedia/images/bestiary/icons/monster-icon-noattack.png"
 	}
-	local attackModeKey = data.attackMode
-
-	if attackModeKey ~= 0 and attackModeKey ~= 1 then
-		attackModeKey = 2
-	end
-
-	local iconPath = modeIcons[attackModeKey]
 	local attackModeWidget = UI.ListBase.CreatureInfo.AttackMode
-
-	attackModeWidget:setImageSource(iconPath)
-	attackModeWidget:setSize("9 9")
-
 	local canUseSpellsIcon = UI.ListBase.CreatureInfo.CanUseSpellsIcon
 
-	if data.canUseSpells then
-		canUseSpellsIcon:setVisible(true)
-		canUseSpellsIcon:setImageSource("/game_cyclopedia/images/bestiary/icons/monster-icon-spellcaster.png")
-		canUseSpellsIcon:setSize("9 9")
+	if data.currentLevel > 1 then
+		local attackModeKey = data.attackMode
+
+		if attackModeKey ~= 0 and attackModeKey ~= 1 then
+			attackModeKey = 2
+		end
+
+		local iconPath = modeIcons[attackModeKey]
+
+		attackModeWidget:setText("")
+		attackModeWidget:setImageSource(iconPath)
+		attackModeWidget:setSize("9 9")
+
+		if data.canUseSpells then
+			canUseSpellsIcon:setVisible(true)
+			canUseSpellsIcon:setImageSource("/game_cyclopedia/images/bestiary/icons/monster-icon-spellcaster.png")
+			canUseSpellsIcon:setSize("9 9")
+		else
+			canUseSpellsIcon:setVisible(false)
+		end
 	else
+		attackModeWidget:setImageSource("")
+		attackModeWidget:setText("?")
+		attackModeWidget:setFont("verdana-11px-monochrome")
+		attackModeWidget:setColor("#C0C0C0")
+		attackModeWidget:setSize("9 9")
 		canUseSpellsIcon:setVisible(false)
 	end
 
@@ -2046,7 +2111,7 @@ function Cyclopedia.BestiarySearch()
 	local raceIds = {}
 
 	for _, race in ipairs(g_things.getMonsterList()) do
-		if race.name and race.name:lower():find(searchLower, 1, true) and race.raceId and race.raceId > 0 then
+		if not race.boss and race.name and race.name:lower():find(searchLower, 1, true) and race.raceId and race.raceId > 0 then
 			table.insert(raceIds, race.raceId)
 		end
 	end
@@ -2116,8 +2181,10 @@ function Cyclopedia.CreateBestiaryCreaturesItem(data)
 	applyBestiaryCreaturePreview(widget.Sprite)
 	widget.Sprite:getCreature():setStaticWalking(1000)
 
-	if data.AnimusMasteryBonus > 0 then
-		widget.AnimusMastery:setTooltip("The Animus Mastery for this creature is unlocked.\nIt yields " .. data.AnimusMasteryBonus .. "% bonus experience points, plus an additional 0.1% for every 10 Animus Masteries unlocked, up to a maximum of 4%.\nYou currently benefit from " .. data.AnimusMasteryBonus .. "% bonus experience points due to having unlocked " .. animusMasteryPoints .. " Animus Masteries.")
+	if data.AnimusMasteryBonus and data.AnimusMasteryBonus > 0 then
+		local bonusPercent = data.AnimusMasteryBonus / 10
+
+		widget.AnimusMastery:setTooltip("The Animus Mastery for this creature is unlocked.\nIt yields " .. bonusPercent .. "% bonus experience points, plus an additional 0.1% for every 10 Animus Masteries unlocked, up to a maximum of 4%.\nYou currently benefit from " .. bonusPercent .. "% bonus experience points due to having unlocked " .. animusMasteryPoints .. " Animus Masteries.")
 		widget.AnimusMastery:setVisible(true)
 	else
 		widget.AnimusMastery:removeTooltip()

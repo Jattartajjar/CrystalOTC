@@ -774,7 +774,7 @@ int push_luavalue(const LootItem& lootItem) {
 }
 
 int push_luavalue(const BestiaryMonsterData& data) {
-    g_lua.createTable(0, 16);
+    g_lua.createTable(0, 19);
     g_lua.pushInteger(data.id);
     g_lua.setField("id");
     g_lua.pushString(data.bestClass);
@@ -797,6 +797,10 @@ int push_luavalue(const BestiaryMonsterData& data) {
     g_lua.setField("difficulty");
     g_lua.pushInteger(data.ocorrence);
     g_lua.setField("ocorrence");
+    g_lua.pushInteger(data.ecoraid);
+    g_lua.setField("ecoraid");
+    g_lua.pushInteger(data.charmPoints);
+    g_lua.setField("charmPoints");
 
     g_lua.createTable(data.loot.size(), 0);
     for (size_t i = 0; i < data.loot.size(); ++i) {
@@ -810,6 +814,8 @@ int push_luavalue(const BestiaryMonsterData& data) {
         g_lua.setField("charmValue");
         g_lua.pushInteger(data.attackMode);
         g_lua.setField("attackMode");
+        g_lua.pushBoolean(data.canUseSpells);
+        g_lua.setField("canUseSpells");
         g_lua.pushInteger(data.maxHealth);
         g_lua.setField("maxHealth");
         g_lua.pushInteger(data.experience);
@@ -892,7 +898,7 @@ int push_luavalue(const BestiaryCharmsData& charmData) {
 }
 
 int push_luavalue(const BestiaryOverviewMonsters& monster) {
-    g_lua.createTable(0, 3);
+    g_lua.createTable(0, 6);
     g_lua.pushInteger(monster.id);
     g_lua.setField("id");
     g_lua.pushInteger(monster.currentLevel);
@@ -901,6 +907,10 @@ int push_luavalue(const BestiaryOverviewMonsters& monster) {
     g_lua.setField("occurrence");
     g_lua.pushInteger(monster.creatureAnimusMasteryBonus);
     g_lua.setField("creatureAnimusMasteryBonus");
+    g_lua.pushInteger(monster.ecoraid);
+    g_lua.setField("ecoraid");
+    g_lua.pushInteger(monster.charmPoints);
+    g_lua.setField("charmPoints");
     return 1;
 }
 

@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_cyclopedia/game_cyclopedia.lua
+-- chunkname: @/game_cyclopedia/game_cyclopedia.lua
 
 Cyclopedia = {}
 
@@ -567,6 +567,16 @@ function Cyclopedia.onBestiaryEntryChanged(raceId)
 	if raceId and raceId > 0 then
 		Cyclopedia._pendingBestiaryRaceId = raceId
 		Cyclopedia._pendingBosstiaryRaceId = nil
+
+		if Cyclopedia.Bestiary then
+			if Cyclopedia.Bestiary.CreatureDetailCache then
+				Cyclopedia.Bestiary.CreatureDetailCache[raceId] = nil
+			end
+
+			Cyclopedia.Bestiary.OverviewCache = nil
+			Cyclopedia.Bestiary.CategoriesLoaded = false
+			Cyclopedia.Bestiary.CategoriesRequested = false
+		end
 	end
 
 	Cyclopedia.clearBosstiaryShortcutHighlight()
