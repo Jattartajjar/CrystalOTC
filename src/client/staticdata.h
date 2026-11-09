@@ -567,42 +567,47 @@ struct BestiaryCharmsData
 
 struct BestiaryOverviewMonsters
 {
-    uint16_t id;
-    uint8_t currentLevel;
-    uint8_t occurrence;
-    uint16_t creatureAnimusMasteryBonus;
+    uint16_t id{ 0 };
+    uint8_t currentLevel{ 0 };
+    uint8_t occurrence{ 0 };
+    uint16_t creatureAnimusMasteryBonus{ 0 };
+    uint8_t ecoraid{ 0 };
+    uint8_t charmPoints{ 0 };
 };
 
 struct LootItem
 {
-    uint16_t itemId;
-    uint8_t diffculty;
-    uint8_t specialEvent;
+    uint16_t itemId{ 0 };
+    uint8_t diffculty{ 0 };
+    uint8_t specialEvent{ 0 };
     std::string name;
-    uint8_t amount;
+    uint8_t amount{ 0 };
 };
 
 struct BestiaryMonsterData
 {
-    uint16_t id;
+    uint16_t id{ 0 };
     std::string bestClass;
-    uint8_t currentLevel;
-    uint16_t AnimusMasteryBonus;
-    uint16_t AnimusMasteryPoints;
-    uint32_t killCounter;
-    uint16_t thirdDifficulty;
-    uint16_t secondUnlock;
-    uint16_t lastProgressKillCount;
-    uint8_t difficulty;
-    uint8_t ocorrence;
+    uint8_t currentLevel{ 0 };
+    uint16_t AnimusMasteryBonus{ 0 };
+    uint16_t AnimusMasteryPoints{ 0 };
+    uint32_t killCounter{ 0 };
+    uint16_t thirdDifficulty{ 0 };
+    uint16_t secondUnlock{ 0 };
+    uint16_t lastProgressKillCount{ 0 };
+    uint8_t difficulty{ 0 };
+    uint8_t ocorrence{ 0 };
+    uint8_t ecoraid{ 0 };
+    uint8_t charmPoints{ 0 };
     std::vector<LootItem> loot;
-    uint16_t charmValue;
-    uint8_t attackMode;
-    uint32_t maxHealth;
-    uint32_t experience;
-    uint16_t speed;
-    uint16_t armor;
-    double mitigation;
+    uint16_t charmValue{ 0 };
+    uint8_t attackMode{ 2 };
+    bool canUseSpells{ false };
+    uint32_t maxHealth{ 0 };
+    uint32_t experience{ 0 };
+    uint16_t speed{ 0 };
+    uint16_t armor{ 0 };
+    double mitigation{ 0.0 };
     std::map<uint8_t, uint16_t> combat;
     std::string location;
 };

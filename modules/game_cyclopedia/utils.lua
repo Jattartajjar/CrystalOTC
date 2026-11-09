@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_cyclopedia/utils.lua
+-- chunkname: @/game_cyclopedia/utils.lua
 
 ACHIEVEMENTS = {
 	{
@@ -3353,6 +3353,8 @@ function Cyclopedia.formatGold(value)
 end
 
 function Cyclopedia.calculateCombatValues(percent)
+	percent = tonumber(percent) or 100
+
 	local values = {}
 
 	if percent == 0 then

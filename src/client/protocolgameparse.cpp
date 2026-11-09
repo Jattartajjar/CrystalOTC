@@ -3490,11 +3490,12 @@ void ProtocolGame::parseBestiaryOverview(const InputMessagePtr& msg)
             msg->getU8(); // 15.25 known/unlocked flag (before progress)
         const uint8_t progress = msg->getU8();
         uint8_t occurrence = 0;
+        uint8_t charmPoints = 0;
         uint16_t creatureAnimusMasteryBonus = 0;
         if (progress > 0) {
             occurrence = msg->getU8();
             if (g_game.getClientVersion() >= 1530)
-                msg->getU8(); // 15.25 extra trailing byte in the progress block
+                charmPoints = msg->getU8(); // 15.25 Echo Raid charm points byte
         }
         if (g_game.getClientVersion() >= 1340) {
             creatureAnimusMasteryBonus = msg->getU16(); // Creature Animous Bonus
@@ -3504,6 +3505,8 @@ void ProtocolGame::parseBestiaryOverview(const InputMessagePtr& msg)
         monster.currentLevel = progress;
         monster.occurrence = occurrence;
         monster.creatureAnimusMasteryBonus = creatureAnimusMasteryBonus;
+        monster.charmPoints = charmPoints;
+        monster.ecoraid = charmPoints > 0 ? 1 : 0;
         data.emplace_back(monster);
     }
 
@@ -3534,13 +3537,16 @@ void ProtocolGame::parseBestiaryMonsterData(const InputMessagePtr& msg)
     data.thirdDifficulty = msg->getU16();
     data.secondUnlock = msg->getU16();
     data.lastProgressKillCount = msg->getU16();
-    data.difficulty = msg->getU8();
-    data.ocorrence = 0; // level-0 monsters (15.25) don't carry occurrence on the wire
-    // 15.25: everything past the stars byte is gated on currentLevel != 0
+    data.difficulty = 0;
+    data.ocorrence = 0;
+    if (g_game.getClientVersion() >= 1530) {
+        data.charmPoints = msg->getU8();
+        data.ecoraid = data.charmPoints > 0 ? 1 : 0;
+    }
+    // 15.25: difficulty (stars), occurrence (diamonds) and loot are gated on currentLevel != 0
     if (g_game.getClientVersion() < 1530 || data.currentLevel != 0) {
+        data.difficulty = msg->getU8();
         data.ocorrence = msg->getU8();
-        if (g_game.getClientVersion() >= 1530)
-            msg->getU8(); // 15.25 extra byte after occurrence
 
         const uint8_t lootCount = msg->getU8();
         for (auto i = 0; i < lootCount; ++i) {
@@ -3561,7 +3567,8 @@ void ProtocolGame::parseBestiaryMonsterData(const InputMessagePtr& msg)
     if (data.currentLevel > 1) {
         data.charmValue = msg->getU16();
         data.attackMode = msg->getU8();
-        msg->getU8();
+        const uint8_t spellsByte = msg->getU8();
+        data.canUseSpells = (spellsByte == 2);
         data.maxHealth = msg->getU32();
         data.experience = msg->getU32();
         data.speed = msg->getU16();
@@ -5618,9 +5625,8 @@ void ProtocolGame::parseUpdateLootTracker(const InputMessagePtr& msg)
 
 void ProtocolGame::parseBestiaryEntryChanged(const InputMessagePtr& msg)
 {
-    msg->getU16(); // monster ID
-
-    // TODO: implement bestiary entry changed usage
+    const uint16_t raceId = msg->getU16(); // monster ID
+    g_lua.callGlobalField("g_game", "onBestiaryEntryChanged", raceId);
 }
 
 void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
