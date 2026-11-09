@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_inventory/inventory.lua
+-- chunkname: @/game_inventory/inventory.lua
 local updateQuickLootIconPosition -- forward declaration (used before its declaration in the decompiled file)
 
 local iconTopMenu
@@ -443,42 +443,78 @@ local BLESSING_BUTTON_IMAGES = {
 	[3] = "/images/inventory/button_blessings_green"
 }
 
-local function buildBlessingsTooltip(blessings)
-	local tooltip = "You are protected by the following blessings:"
+local cachedBlessingsBitmask = 0
+local lastBlessRequestTime = 0
 
-	if Bit.hasBit(blessings, bit.lshift(1, 1)) then
-		tooltip = tooltip .. "\nTwist of Fate"
+local function buildBlessingsTooltip(blessings, status)
+	blessings = tonumber(blessings) or 0
+	status = tonumber(status) or 0
+
+	-- Fallback caso o bitmask ainda não tenha sido recebido (blessings <= 1)
+	if blessings <= 1 then
+		if status == 3 then
+			-- Todas as 8 blessings
+			blessings = 510
+		elseif status == 2 then
+			-- As 5 blessings regulares
+			blessings = 124
+		else
+			return "You are not protected by any blessings."
+		end
 	end
 
-	if Bit.hasBit(blessings, bit.lshift(1, 2)) then
-		tooltip = tooltip .. "\nWisdom of Solitude"
+	local list = {}
+
+	-- Twist of Fate (PvP) - bit 1 (valor 2)
+	if bit.band(blessings, 2) ~= 0 then
+		table.insert(list, "Twist of Fate")
 	end
 
-	if Bit.hasBit(blessings, bit.lshift(1, 3)) then
-		tooltip = tooltip .. "\nSpark of the Phoenix"
+	-- The Wisdom of Solitude - bit 2 (valor 4)
+	if bit.band(blessings, 4) ~= 0 then
+		table.insert(list, "The Wisdom of Solitude")
 	end
 
-	if Bit.hasBit(blessings, bit.lshift(1, 4)) then
-		tooltip = tooltip .. "\nFire of the Suns"
+	-- The Spark of the Phoenix - bit 3 (valor 8)
+	if bit.band(blessings, 8) ~= 0 then
+		table.insert(list, "The Spark of the Phoenix")
 	end
 
-	if Bit.hasBit(blessings, bit.lshift(1, 5)) then
-		tooltip = tooltip .. "\nSpiritual Shielding"
+	-- The Fire of the Suns - bit 4 (valor 16)
+	if bit.band(blessings, 16) ~= 0 then
+		table.insert(list, "The Fire of the Suns")
 	end
 
-	if Bit.hasBit(blessings, bit.lshift(1, 6)) then
-		tooltip = tooltip .. "\nEmbrace of Tibia"
+	-- The Spiritual Shielding - bit 5 (valor 32)
+	if bit.band(blessings, 32) ~= 0 then
+		table.insert(list, "The Spiritual Shielding")
 	end
 
-	if Bit.hasBit(blessings, bit.lshift(1, 7)) then
-		tooltip = tooltip .. "\nHeart of the Mountain"
+	-- The Embrace of Tibia - bit 6 (valor 64)
+	if bit.band(blessings, 64) ~= 0 then
+		table.insert(list, "The Embrace of Tibia")
 	end
 
-	if Bit.hasBit(blessings, bit.lshift(1, 8)) then
-		tooltip = tooltip .. "\nBlood of the Mountain"
+	-- Heart of the Mountain - bit 7 (valor 128)
+	if bit.band(blessings, 128) ~= 0 then
+		table.insert(list, "Heart of the Mountain")
 	end
 
-	return tooltip
+	-- Blood of the Mountain - bit 8 (valor 256)
+	if bit.band(blessings, 256) ~= 0 then
+		table.insert(list, "Blood of the Mountain")
+	end
+
+	-- Adventurer's Blessing - bit 0 (valor 1)
+	if bit.band(blessings, 1) ~= 0 then
+		table.insert(list, "Adventurer's Blessing")
+	end
+
+	if #list == 0 then
+		return "You are not protected by any blessings."
+	end
+
+	return "You are protected by the following blessings:\n" .. table.concat(list, "\n")
 end
 
 local function applyBlessingsIcon(status, tooltip)
@@ -499,22 +535,85 @@ local function applyBlessingsIcon(status, tooltip)
 	end
 end
 
-local function onBlessingsChange(player, blessings, iconColor)
+function updateBlessingsData(bitmask)
+	cachedBlessingsBitmask = tonumber(bitmask) or 0
+	local player = g_game.getLocalPlayer()
+	local status = 0
+	if player then
+		if player.getBlessVisualState then
+			status = player:getBlessVisualState()
+		end
+		if (not status or status == 0) and player.getBlessingsIconColor then
+			status = player:getBlessingsIconColor()
+		end
+	end
+	applyBlessingsIcon(status, buildBlessingsTooltip(cachedBlessingsBitmask, status))
+end
+
+local function setupBlessingsButtonHover(button)
+	if not button then
+		return
+	end
+
+	connect(button, {
+		onHoverChange = function(widget, hovered)
+			if hovered then
+				local now = g_clock.millis()
+				if now - lastBlessRequestTime > 1500 then
+					lastBlessRequestTime = now
+					if modules.game_blessing and modules.game_blessing.requestBlessingsSilent then
+						modules.game_blessing.requestBlessingsSilent()
+					end
+				end
+
+				local player = g_game.getLocalPlayer()
+				if player then
+					local blessings = cachedBlessingsBitmask
+					if not blessings or blessings <= 0 then
+						blessings = player:getBlessings()
+					end
+					local status = player.getBlessVisualState and player:getBlessVisualState() or (player.getBlessingsIconColor and player:getBlessingsIconColor()) or 0
+					widget:setTooltip(buildBlessingsTooltip(blessings, status))
+				end
+			end
+		end
+	})
+end
+
+local function onBlessingsChange(player, blessings, oldBlessings, blessVisualState)
 	if not player then
 		return
 	end
 
-	local hasAdventurerBlessing = Bit.hasBit(blessings, Blessings.Adventurer)
+	local hasAdventurerBlessing = Bit.hasBit(blessings, Blessings.Adventurer) or Bit.hasBit(blessings, 1)
 
 	toggleAdventurerStyle(hasAdventurerBlessing)
 
-	local status = iconColor
+	local status = blessVisualState
 
 	if not status or status == 0 then
-		status = player:getBlessingsIconColor()
+		if player.getBlessVisualState then
+			status = player:getBlessVisualState()
+		end
+		if not status or status == 0 and player.getBlessingsIconColor then
+			status = player:getBlessingsIconColor()
+		end
 	end
 
-	applyBlessingsIcon(status, buildBlessingsTooltip(blessings))
+	if blessings and blessings > 1 then
+		cachedBlessingsBitmask = blessings
+	end
+
+	if modules.game_blessing and modules.game_blessing.requestBlessingsSilent then
+		modules.game_blessing.requestBlessingsSilent()
+	end
+
+	local effectiveBlessings = cachedBlessingsBitmask
+	if not effectiveBlessings or effectiveBlessings <= 0 then
+		effectiveBlessings = blessings
+	end
+
+	applyBlessingsIcon(status, buildBlessingsTooltip(effectiveBlessings, status))
 end
 
 function getIconsPanelOn()
@@ -554,7 +653,7 @@ local function refreshInventory_panel()
 	if player then
 		onSoulChange(player, player:getSoul())
 		onFreeCapacityChange(player, player:getFreeCapacity())
-		onBlessingsChange(player, player:getBlessings())
+		onBlessingsChange(player, player:getBlessings(), 0, player.getBlessVisualState and player:getBlessVisualState() or 0)
 	end
 
 	if inventoryShrink then
@@ -784,6 +883,8 @@ function inventoryController:onGameStart()
 
 	refreshInventorySizes()
 	refreshInventory_panel()
+	setupBlessingsButtonHover(inventoryController.ui.onPanel.blessings)
+	setupBlessingsButtonHover(inventoryController.ui.offPanel.blessings)
 
 	local elements = {
 		{
@@ -849,9 +950,15 @@ function inventoryController:onGameStart()
 		onUpdateItem = onEquippedQuiverContainerChange,
 		onRemoveItem = onEquippedQuiverContainerChange
 	})
+
+	if modules.game_blessing and modules.game_blessing.requestBlessingsSilent then
+		modules.game_blessing.requestBlessingsSilent()
+	end
 end
 
 function inventoryController:onGameEnd()
+	cachedBlessingsBitmask = 0
+	lastBlessRequestTime = 0
 	stopEvent()
 	toggleAdventurerStyle(false)
 
@@ -1029,7 +1136,7 @@ function changeInventorySize()
 	if player and g_game.isOnline() then
 		onFreeCapacityChange(player, player:getFreeCapacity())
 		onSoulChange(player, player:getSoul())
-		onBlessingsChange(player, player:getBlessings())
+		onBlessingsChange(player, player:getBlessings(), 0, player.getBlessVisualState and player:getBlessVisualState() or 0)
 	end
 end
 

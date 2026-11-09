@@ -1,12 +1,14 @@
-﻿-- chunkname: @/game_blessing/blessing.lua
+-- chunkname: @/game_blessing/blessing.lua
 
 blessingWindow = nil
 historyWindow = nil
 
+local isModalOpenRequested = false
 local openedFromCyclopedia = false
 local blessSheet = "/images/game/blessings/blessings-icons"
 local ICON_SIZE = 64
 local blessingIcons = {
+	["1"] = 0,
 	["4"] = 3,
 	["2"] = 8,
 	["256"] = 7,
@@ -172,7 +174,14 @@ function terminate()
 end
 
 function showBlessingModal()
+	isModalOpenRequested = true
 	g_game.requestBless()
+end
+
+function requestBlessingsSilent()
+	if g_game.isOnline() then
+		g_game.requestBless()
+	end
 end
 
 function closeBlessing(restoreCyclopedia)
@@ -218,9 +227,11 @@ end
 function online()
 	destroyWindows()
 	ensureWindows()
+	requestBlessingsSilent()
 end
 
 function offline()
+	isModalOpenRequested = false
 	openedFromCyclopedia = false
 
 	if isAlive(blessingWindow) then
@@ -250,6 +261,25 @@ local function updateBlessLayout(total)
 end
 
 function onBlessingDialog(data)
+	local bitmask = 0
+	if data and data.blesses then
+		for _, bless in ipairs(data.blesses) do
+			if bless.playerBlessCount and bless.playerBlessCount > 0 then
+				bitmask = bit.bor(bitmask, bless.blessBitwise or 0)
+			end
+		end
+	end
+
+	if modules.game_inventory and modules.game_inventory.updateBlessingsData then
+		modules.game_inventory.updateBlessingsData(bitmask)
+	end
+
+	if not isModalOpenRequested then
+		return
+	end
+
+	isModalOpenRequested = false
+
 	ensureWindows()
 
 	local blessingsPanel = getBlessingsPanel()
