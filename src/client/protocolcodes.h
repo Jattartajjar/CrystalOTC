@@ -91,6 +91,7 @@ namespace Proto
         GameServerImbuementDurations = 93,
         GameServerPassiveCooldown = 94,
         GameServerOpenWheelWindow = 95, // 0x5F
+        GameServerWheelSpellAugments = 96, // 0x60
         GameServerBosstiaryData = 97,
         GameServerBosstiarySlots = 98,
         GameServerSendClientCheck = 99,
