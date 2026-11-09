@@ -1,4 +1,4 @@
-﻿-- chunkname: @/gamelib/player.lua
+-- chunkname: @/gamelib/player.lua
 
 PlayerStates = {
 	PartyBuff = 4096,
@@ -951,12 +951,19 @@ function Player:isPromoted()
 end
 
 function Player:getBlessingStatus()
-	local blessings = self:getBlessings()
+	if self.getBlessVisualState then
+		local visualState = self:getBlessVisualState()
+		if visualState and visualState > 0 then
+			return visualState
+		end
+	end
+
+	local blessings = tonumber(self:getBlessings()) or 0
 	local status = 1
 
-	if Bit.hasBit(blessings, bit.lshift(1, 8)) then
+	if Bit.hasBit(blessings, 256) or (Bit.hasBit(blessings, 128) and Bit.hasBit(blessings, 64) and Bit.hasBit(blessings, 32)) then
 		status = 3
-	elseif Bit.hasBit(blessings, bit.lshift(1, 1)) then
+	elseif blessings > 0 then
 		status = 2
 	end
 

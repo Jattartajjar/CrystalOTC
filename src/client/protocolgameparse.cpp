@@ -866,7 +866,11 @@ void ProtocolGame::parseBlessings(const InputMessagePtr& msg) const
     if (g_game.getClientVersion() >= 1200) {
         blessVisualState = msg->getU8(); // 1 = Disabled | 2 = normal | 3 = green
     }
-    m_localPlayer->setBlessings(blessings, blessVisualState);
+    if (g_game.getClientVersion() >= 1200 && blessings <= 1 && m_localPlayer && m_localPlayer->getBlessings() > 1) {
+        m_localPlayer->setBlessings(m_localPlayer->getBlessings(), blessVisualState);
+    } else if (m_localPlayer) {
+        m_localPlayer->setBlessings(blessings, blessVisualState);
+    }
 }
 
 void ProtocolGame::parsePreset(const InputMessagePtr& msg)
@@ -5529,6 +5533,16 @@ void ProtocolGame::parseBlessDialog(const InputMessagePtr& msg)
         log.colorMessage = msg->getU8();
         log.historyMessage = msg->getString();
         data.logs.emplace_back(log);
+    }
+
+    uint16_t blessingsMask = 0;
+    for (const auto& bless : data.blesses) {
+        if (bless.playerBlessCount > 0) {
+            blessingsMask |= bless.blessBitwise;
+        }
+    }
+    if (m_localPlayer) {
+        m_localPlayer->setBlessings(blessingsMask, m_localPlayer->getBlessVisualState());
     }
 
     g_lua.callGlobalField("g_game", "onUpdateBlessDialog", data);

@@ -462,8 +462,25 @@ end
 install(g_mouse, "setUseNativeSystemCursor", function() end)
 install(g_mouse, "setCursorDisplayScale", function() end)
 
+install(g_game, "requestBestiaryOverviewSearch", function(raceIds)
+	if not g_game.requestBestiaryOverview then
+		return
+	end
+
+	return g_game.requestBestiaryOverview("", true, raceIds or {})
+end)
+
 install(g_things, "getMonsterList", function()
-	return g_things.getRacesByName("")
+	local races = g_things.getRacesByName("")
+	local monsters = {}
+
+	for _, race in ipairs(races or {}) do
+		if not race.boss then
+			table.insert(monsters, race)
+		end
+	end
+
+	return monsters
 end)
 install(g_things, "getHouseTilesData", function()
 	return nil
@@ -532,8 +549,17 @@ if Thing then
 end
 
 if LocalPlayer then
-	install(LocalPlayer, "getBlessingsIconColor", function()
-		return "#FFFFFF"
+	install(LocalPlayer, "getBlessingsIconColor", function(self)
+		if self and self.getBlessVisualState then
+			local visualState = self:getBlessVisualState()
+			if visualState and visualState > 0 then
+				return visualState
+			end
+		end
+		if self and self.getBlessingStatus then
+			return self:getBlessingStatus()
+		end
+		return 1
 	end)
 end
 
