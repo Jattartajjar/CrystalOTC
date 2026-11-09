@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_store/game_store.lua
+-- chunkname: @/game_store/game_store.lua
 
 local acceptWindow, changeNameWindow, worldTransferWindow, hirelingNameWindow, transferPointsWindow, processingWindow, messageBox
 local oldProtocol = false
@@ -3597,7 +3597,7 @@ local function openStoreRedirect(label, requestFn, delay, focusOfferId)
 
 	prepareStoreRedirectUi(focusOfferId)
 
-	if not categoriesReady then
+	if not categoriesReady or a0xF2 then
 		g_game.openStore()
 
 		delay = delay or 300
@@ -3673,7 +3673,7 @@ function openStoreCategory(categoryName, subCategory, sortOrder, serviceType)
 	end
 
 	openStoreRedirect("category:" .. categoryName, function()
-		g_game.requestStoreOffers(categoryName, subCategory or "", sortOrder or 0, serviceType or 0)
+		g_game.requestStoreOffers(categoryName, subCategory or "", sortOrder or 0, serviceType or 1)
 	end)
 end
 

@@ -1,4 +1,4 @@
-﻿-- chunkname: @/client_entergame/characterlist.lua
+-- chunkname: @/client_entergame/characterlist.lua
 
 CharacterList = {}
 
@@ -328,12 +328,14 @@ local function tryLogin(charInfo, tries)
 		end
 
 		loginEvent = scheduleEvent(function()
+			loginEvent = nil
 			tryLogin(charInfo, tries + 1)
 		end, 100)
 
 		return
 	end
 
+	loginEvent = nil
 	CharacterList.hide()
 	g_logger.info("Login to " .. charInfo.worldHost .. ":" .. charInfo.worldPort)
 
@@ -516,6 +518,11 @@ function onGameUpdateNeeded(signature)
 end
 
 local function onGameStart()
+	if loginEvent then
+		removeEvent(loginEvent)
+		loginEvent = nil
+	end
+
 	cancelRestoreCharacterListEvent()
 
 	manualLogoutPending = false
@@ -530,7 +537,7 @@ local function onGameEnd()
 	restoreCharacterListEvent = addEvent(function()
 		restoreCharacterListEvent = nil
 
-		if CharacterList and not g_game.isOnline() and not g_game.isLogging() then
+		if CharacterList and not g_game.isOnline() and not g_game.isLogging() and not loginEvent then
 			CharacterList.showAgain()
 		end
 	end)
