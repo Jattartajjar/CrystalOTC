@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_taskboard/menus/bounty_task.lua
+-- chunkname: @/game_taskboard/menus/bounty_task.lua
 
 TaskBoard.BountyTask = {}
 
@@ -23,13 +23,13 @@ local function applyStarsBackdrop(starsWidget, stars)
 		return
 	end
 
-	local stars = tonumber(stars)
+	local stars = tonumber(stars) or 0
 
 	if stars > 0 then
 		starsWidget:setSize(tosize("279 44"))
 	end
 
-	starsWidget:setImageSource(BACKDROP_BY_STARS[stars])
+	starsWidget:setImageSource(BACKDROP_BY_STARS[stars] or BACKDROP_BY_STARS[0])
 end
 
 local BOUNTY_TRACKER_TOOLTIP_FOOTER = "Click in this window to open the Task Board dialog."
@@ -110,7 +110,7 @@ local function setBountyTrackerSelected(data)
 	local timeBar = slot:getChildById("time")
 	local raceId = tonumber(data.raceId) or 0
 	local raceData = g_things.getRaceData(raceId)
-	local creatureName = raceData and raceData.raceId ~= 0 and raceData.name or "?"
+	local creatureName = (raceData and raceData.raceId ~= 0 and raceData.name and raceData.name ~= "") and raceData.name or (raceId > 0 and string.format("Creature (%d)", raceId) or "?")
 
 	if creature then
 		if raceData and raceData.outfit then
@@ -206,11 +206,11 @@ function BountyTask:fillSlotPanel(panel, data, selected)
 
 	local creature = panel:recursiveGetChildById("slotCreature")
 	local raceId = tonumber(data.raceId) or 0
-	local creatureName = "?"
+	local creatureName = raceId > 0 and string.format("Creature (%d)", raceId) or "?"
 	local raceData = g_things.getRaceData(raceId)
 
-	if raceData and raceData.raceId ~= 0 then
-		creatureName = raceData.name or creatureName
+	if raceData and raceData.raceId ~= 0 and raceData.name and raceData.name ~= "" then
+		creatureName = raceData.name
 
 		if creature and raceData.outfit then
 			creature:setOutfit(raceData.outfit)
@@ -302,13 +302,24 @@ end
 
 function BountyTask:selectDifficulty(difficulty)
 	local difficulties = {
-		Expert = 2,
-		Adept = 1,
-		Beginner = 0,
-		Master = 3
+		[0] = 0, [1] = 1, [2] = 2, [3] = 3,
+		Beginner = 0, Adept = 1, Expert = 2, Master = 3,
+		beginner = 0, adept = 1, expert = 2, master = 3
 	}
 
-	g_game.sendSelectTaskDifficulty(difficulties[difficulty])
+	local d = difficulties[difficulty]
+	if d == nil and type(difficulty) == "string" then
+		d = difficulties[difficulty:lower()]
+		if d == nil then
+			if difficulty == tr("Beginner") then d = 0
+			elseif difficulty == tr("Adept") then d = 1
+			elseif difficulty == tr("Expert") then d = 2
+			elseif difficulty == tr("Master") then d = 3
+			end
+		end
+	end
+
+	g_game.sendSelectTaskDifficulty(d or 0)
 end
 
 local bountyCreatureCache, selectedBountyRow, selectedBountyRace, listBuildEvent

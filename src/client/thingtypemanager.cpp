@@ -319,6 +319,69 @@ namespace {
             otcRaceList.emplace_back(otcRaceType);
         }
     }
+
+    struct ExtendedMonsterDef {
+        uint32_t raceId;
+        const char* name;
+        uint16_t lookType;
+        uint8_t head;
+        uint8_t body;
+        uint8_t legs;
+        uint8_t feet;
+        uint8_t addons;
+    };
+
+    static const std::vector<ExtendedMonsterDef> extendedMonsters = {
+        { 2802, "Winged Jaracal", 1961, 113, 40, 95, 95, 1 },
+        { 2803, "Iceplume Strider", 1950, 0, 51, 0, 0, 0 },
+        { 2804, "Silverfrost Sentinel", 1951, 81, 113, 0, 0, 0 },
+        { 2805, "True Feverbloom Asura", 1068, 62, 61, 114, 15, 1 },
+        { 2829, "Moonspawn Juggernaut", 1972, 0, 0, 0, 0, 0 },
+        { 2839, "Radiant Warden", 1964, 0, 0, 0, 0, 0 },
+        { 2840, "Devoted Radiant Warden", 1964, 0, 0, 0, 0, 1 },
+        { 2841, "Radiant Paragon", 1966, 0, 0, 0, 0, 2 },
+        { 2842, "Devoted Radiant Paragon", 1966, 0, 0, 0, 0, 1 },
+        { 2843, "Radiant Acolyte", 1969, 0, 0, 0, 0, 0 },
+        { 2844, "Devoted Radiant Acolyte", 1969, 0, 0, 0, 0, 3 },
+        { 2845, "Radiant Templar", 1965, 0, 0, 0, 0, 0 },
+        { 2846, "Devoted Radiant Templar", 1965, 0, 0, 0, 0, 3 },
+        { 2847, "Radiant Inquisitor", 1967, 0, 0, 0, 0, 0 },
+        { 2848, "Devoted Radiant Inquisitor", 1967, 0, 0, 0, 0, 3 },
+        { 2849, "Radiant Zealot", 1968, 0, 0, 0, 0, 0 },
+        { 2850, "Devoted Radiant Zealot", 1968, 0, 0, 0, 0, 3 },
+        { 2851, "Moonspawn Blightspitter", 1970, 0, 0, 0, 0, 0 },
+        { 2852, "Moonspawn Oozecrown", 1971, 0, 0, 0, 0, 0 },
+        { 2856, "Jaracal", 1961, 82, 97, 76, 76, 0 },
+        { 2857, "Moonstone Excavator", 1952, 0, 0, 0, 0, 1 },
+        { 2858, "Moonstone Overseer", 1956, 0, 0, 0, 0, 0 }
+    };
+
+    void loadExtendedMonsters(RaceList& otcRaceList) {
+        for (const auto& ext : extendedMonsters) {
+            bool exists = false;
+            for (const auto& existing : otcRaceList) {
+                if (existing.raceId == ext.raceId) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                RaceType r;
+                r.raceId = ext.raceId;
+                r.name = ext.name;
+                r.boss = false;
+                Outfit o;
+                o.setId(ext.lookType);
+                o.setHead(ext.head);
+                o.setBody(ext.body);
+                o.setLegs(ext.legs);
+                o.setFeet(ext.feet);
+                o.setAddons(ext.addons);
+                r.outfit = o;
+                otcRaceList.emplace_back(std::move(r));
+            }
+        }
+    }
 }
 
 bool ThingTypeManager::loadStaticData(const std::string& file)
@@ -375,6 +438,7 @@ bool ThingTypeManager::loadStaticData(const std::string& file)
         // in separate data banks
         loadCreatureBank(m_monsterRaces, raceBank, false);
         loadCreatureBank(m_monsterRaces, bossBank, true);
+        loadExtendedMonsters(m_monsterRaces);
 
         // Drop the catalog DOM after use (see the comment in loadAppearances) - lazy-reload will load it
         // again should another loader need it.
