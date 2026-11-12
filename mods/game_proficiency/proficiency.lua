@@ -1096,7 +1096,7 @@ function WeaponProficiency:updateMainButtons(currentData)
 
 	self.resetButton:setOn(enableReset)
 	self.applyButton:setOn(false)
-	self.okButton:setOn(false)
+	self.okButton:setOn(true)
 
 	local resetTooltip = "Reset your perks"
 
@@ -1108,6 +1108,7 @@ function WeaponProficiency:updateMainButtons(currentData)
 
 	self.resetButton:setTooltip(resetTooltip)
 	self.applyButton:setTooltip("No changes have been made to your perks.")
+	self.okButton:setTooltip("Close")
 	self.closeButton:setText("Close")
 end
 
@@ -1664,7 +1665,7 @@ function WeaponProficiency:onClearSearch()
 end
 
 function WeaponProficiency:onApplyChanges(button, targetItem)
-	if button and not button:isOn() then
+	if button and button:getId() == "apply" and not button:isOn() then
 		return
 	end
 
@@ -1720,7 +1721,7 @@ function WeaponProficiency:onApplyChanges(button, targetItem)
 	end
 
 	self.applyButton:setOn(false)
-	self.okButton:setOn(false)
+	self.okButton:setOn(true)
 	self.closeButton:setText("Close")
 
 	self.saveWeaponMissing = false
@@ -1736,8 +1737,13 @@ function WeaponProficiency:onApplyChanges(button, targetItem)
 		modules.game_interface.StatsBar.onUpdateProficiencyData(self.cacheList[clientId], realHighlight, thingType)
 	end
 
-	if button == self.okButton then
-		self:onCloseWindow(self.closeButton)
+	if button and (button == self.okButton or (button.getId and button:getId() == "ok")) then
+		hide()
+
+		local inspectMod = modules.game_inspect
+		if inspectMod and inspectMod.returnToCharacterInspect then
+			inspectMod.returnToCharacterInspect()
+		end
 	end
 end
 
@@ -3588,8 +3594,22 @@ function WeaponProficiency:onResetWeapon(button)
 	self:checkPerksMatch(currentItem:getId())
 end
 
+function WeaponProficiency:onOkClick(button)
+	if self.saveWeaponMissing or (self.applyButton and self.applyButton:isOn()) then
+		self:onApplyChanges()
+	end
+
+	hide()
+
+	local inspectMod = modules.game_inspect
+	if inspectMod and inspectMod.returnToCharacterInspect then
+		inspectMod.returnToCharacterInspect()
+	end
+end
+
 function WeaponProficiency:onCloseWindow(button)
-	if button:getText() == "Close" then
+	local buttonText = button and button:getText() or ""
+	if buttonText == "Close" or buttonText == tr("Close") or not self.saveWeaponMissing then
 		hide()
 
 		local inspectMod = modules.game_inspect
@@ -3756,9 +3776,9 @@ function WeaponProficiency:checkPerksMatch(itemId)
 	local tooltip = allPerksMatch and "No changes have been made to your perks." or "Apply changes to your perks"
 
 	self.applyButton:setOn(not allPerksMatch)
-	self.okButton:setOn(not allPerksMatch)
+	self.okButton:setOn(true)
 	self.applyButton:setTooltip(tooltip)
-	self.okButton:setTooltip(tooltip)
+	self.okButton:setTooltip(not allPerksMatch and "Apply changes to your perks and close" or "Close")
 	self.closeButton:setText(not allPerksMatch and "Cancel" or "Close")
 
 	self.saveWeaponMissing = not allPerksMatch
