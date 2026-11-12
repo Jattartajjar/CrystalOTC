@@ -1,4 +1,4 @@
-﻿-- chunkname: @/mods/game_proficiency/proficiency.lua
+-- chunkname: @/mods/game_proficiency/proficiency.lua
 
 if not WeaponProficiency then
 	WeaponProficiency = {}
@@ -486,6 +486,15 @@ function onWeaponProficiency(itemId, experience, perks, marketCategory, modifier
 	sortWeaponProficiency(marketCategory)
 	WeaponProficiency:onUpdateSelectedProficiency(itemId)
 
+	local hand = modules.game_inventory.getWeaponProficiencyHandItem()
+	if hand and hand:getId() == itemId then
+		local thingType = hand:getThingType()
+		if thingType then
+			local realHighlight = WeaponProficiency:hasUnusedPerk(itemId, thingType)
+			modules.game_interface.StatsBar.onUpdateProficiencyData(WeaponProficiency.cacheList[itemId], realHighlight, thingType)
+		end
+	end
+
 	local root = g_ui.getRootWidget()
 	local shape = root and root:recursiveGetChildById("shapeDialog")
 
@@ -534,6 +543,66 @@ function onWeaponProficiencyReshape(itemId, grade, slot, options)
 	WeaponProficiency:openReshapeDialog()
 end
 
+function WeaponProficiency:hasUnusedPerk(itemId, thingType)
+	local currentData = self.cacheList[itemId]
+	if not currentData then
+		return false
+	end
+
+	local profId = thingType and thingType.getProficiencyId and thingType:getProficiencyId()
+	if not profId or profId <= 0 then
+		local hand = modules.game_inventory and modules.game_inventory.getWeaponProficiencyHandItem and modules.game_inventory.getWeaponProficiencyHandItem()
+		if hand and hand:getId() == itemId then
+			profId = hand:getProficiencyId()
+			thingType = thingType or hand:getThingType()
+		end
+	end
+
+	if not profId or profId <= 0 then
+		return false
+	end
+
+	local PD = ProficiencyData
+	if not PD or not PD.getPerkLaneCount or not PD.getCurrentLevelByExp then
+		return false
+	end
+
+	local perkLanes = PD:getPerkLaneCount(profId)
+	if not perkLanes or perkLanes <= 0 then
+		return false
+	end
+
+	local exp = currentData.exp or 0
+	if exp <= 0 then
+		return false
+	end
+
+	local weaponLevel = PD:getCurrentLevelByExp(thingType, exp, true) or 0
+	if PD.getLevelPercent and weaponLevel < perkLanes then
+		for checkLane = weaponLevel + 1, perkLanes do
+			local pct = PD:getLevelPercent(exp, checkLane, thingType)
+			if pct and pct >= 100 then
+				weaponLevel = math.max(weaponLevel, checkLane)
+			end
+		end
+	end
+
+	if weaponLevel < 1 then
+		return false
+	end
+
+	local maxUnlockedLane = math.min(weaponLevel, perkLanes)
+	local perks = currentData.perks or {}
+
+	for lane = 1, maxUnlockedLane do
+		if perks[lane - 1] == nil then
+			return true
+		end
+	end
+
+	return false
+end
+
 function onProficiencyNotification(itemId, experience, hasHighlight, thingType)
 	local itemCache = WeaponProficiency.cacheList[itemId]
 
@@ -557,7 +626,13 @@ function onProficiencyNotification(itemId, experience, hasHighlight, thingType)
 		return
 	end
 
-	modules.game_interface.StatsBar.onUpdateProficiencyData(WeaponProficiency.cacheList[itemId], hasHighlight, thingType)
+	if not WeaponProficiency.cacheList[itemId]._requestedInfo and g_game and g_game.sendWeaponProficiencyAction then
+		WeaponProficiency.cacheList[itemId]._requestedInfo = true
+		g_game.sendWeaponProficiencyAction(Otc.WEAPON_PROFICIENCY_ITEM_INFO, itemId)
+	end
+
+	local realHighlight = WeaponProficiency:hasUnusedPerk(itemId, thingType)
+	modules.game_interface.StatsBar.onUpdateProficiencyData(WeaponProficiency.cacheList[itemId], realHighlight, thingType)
 end
 
 function onResourceBalance(type, value)
@@ -747,11 +822,20 @@ local function enableBonusIcon(bonusIcon, hightLightWidget, borderWidget, bonusD
 end
 
 local function disableBonusIcon(bonusIcon, hightLightWidget, borderWidget, bonusDescWidget, perkData)
-	hightLightWidget:setVisible(false)
-	borderWidget:setImageSource("/images/game/proficiency/border-weaponmasterytreeicons-inactive")
-	bonusDescWidget:setImageSource("/images/game/proficiency/icon-lock-grey")
-	bonusDescWidget:setText("")
-	bonusDescWidget:removeTooltip()
+	if hightLightWidget then
+		hightLightWidget:setVisible(false)
+	end
+
+	if borderWidget then
+		borderWidget:setImageSource("/images/game/proficiency/border-weaponmasterytreeicons-inactive")
+	end
+
+	if bonusDescWidget then
+		bonusDescWidget:setImageSource("/images/game/proficiency/icon-lock-grey")
+		bonusDescWidget:setText("")
+		bonusDescWidget:removeTooltip()
+	end
+
 	applyBonusIconVisualState(bonusIcon)
 end
 
@@ -944,20 +1028,32 @@ local function onBonusIconClick(bonusIcon)
 	local slot = bonusIcon.slot
 	local currentPerkPanel = bonusIcon:getParent()
 
-	if not bonusIcon.blocked and not bonusIcon.locked and not bonusIcon.active then
-		disableOtherBonusIcons(currentPerkPanel, bonusIcon)
-
-		local currentPerkData = bonusIcon.perkData
-		local _, currentTooltip = ProficiencyData:getBonusNameAndTooltip(currentPerkData)
+	if not bonusIcon.blocked and not bonusIcon.locked then
 		local currentItem = WeaponProficiency.displayItemWidget:getItem()
 		local itemId = currentItem and currentItem:getId()
-		local cacheEntry = itemId and WeaponProficiency.cacheList[itemId]
-		local modifiers = cacheEntry and cacheEntry.modifiers or {}
-		local isModified = getModifiedPerkData(modifiers, grade, slot) ~= nil
 		local bonusDetail = WeaponProficiency.bonusDetailPanel:getChildById("bonusDetail_" .. grade + 1)
+		local highlightWidget = bonusIcon:getChildById("highlight")
+		local borderWidget = bonusIcon:getChildById("border")
+		local bonusNameWidget = bonusDetail and bonusDetail:recursiveGetChildById("bonusName")
 
-		enableBonusIcon(bonusIcon, bonusIcon:getChildById("highlight"), bonusIcon:getChildById("border"), bonusDetail and bonusDetail:recursiveGetChildById("bonusName"), currentTooltip, currentPerkData, isModified)
-		WeaponProficiency:checkPerksMatch(itemId)
+		if bonusIcon.active then
+			bonusIcon.active = false
+			disableBonusIcon(bonusIcon, highlightWidget, borderWidget, bonusNameWidget, bonusIcon.perkData)
+			updateManipulateRankWidget(bonusIcon, getBonusIconModifierEntry(bonusIcon), false)
+			WeaponProficiency:checkPerksMatch(itemId)
+		else
+			disableOtherBonusIcons(currentPerkPanel, bonusIcon)
+
+			local currentPerkData = bonusIcon.perkData
+			local _, currentTooltip = ProficiencyData:getBonusNameAndTooltip(currentPerkData)
+			local cacheEntry = itemId and WeaponProficiency.cacheList[itemId]
+			local modifiers = cacheEntry and cacheEntry.modifiers or {}
+			local isModified = getModifiedPerkData(modifiers, grade, slot) ~= nil
+
+			enableBonusIcon(bonusIcon, highlightWidget, borderWidget, bonusNameWidget, currentTooltip, currentPerkData, isModified)
+			updateManipulateRankWidget(bonusIcon, getBonusIconModifierEntry(bonusIcon), true)
+			WeaponProficiency:checkPerksMatch(itemId)
+		end
 	end
 
 	WeaponProficiency.selectedModifySlot = {
@@ -1582,7 +1678,10 @@ function WeaponProficiency:onApplyChanges(button, targetItem)
 		return
 	end
 
-	local clientId = self:getSelectedClientId()
+	local clientId = currentItem:getId()
+	if not clientId or clientId <= 0 then
+		clientId = self:getSelectedClientId()
+	end
 
 	if clientId <= 0 then
 		return
@@ -1598,27 +1697,25 @@ function WeaponProficiency:onApplyChanges(button, targetItem)
 		end
 	end
 
+	local levels, positions = {}, {}
+
+	for level in pairs(toSend) do
+		levels[#levels + 1] = level
+	end
+
+	table.sort(levels)
+
+	for i, level in ipairs(levels) do
+		positions[i] = toSend[level]
+	end
+
+	g_game.sendWeaponProficiencyApply(clientId, levels, positions)
+
 	if table.empty(toSend) then
 		g_game.sendWeaponProficiencyAction(2, clientId)
 
 		self.cacheList[clientId].perks = {}
 	else
-		-- our binding is sendWeaponProficiencyApply(itemId, levels[], perkPositions[]),
-		-- not (itemId, level->perk map) as in Paulistinha - we split it into two arrays
-		local levels, positions = {}, {}
-
-		for level in pairs(toSend) do
-			levels[#levels + 1] = level
-		end
-
-		table.sort(levels)
-
-		for i, level in ipairs(levels) do
-			positions[i] = toSend[level]
-		end
-
-		g_game.sendWeaponProficiencyApply(clientId, levels, positions)
-
 		self.cacheList[clientId].perks = toSend
 	end
 
@@ -1631,6 +1728,17 @@ function WeaponProficiency:onApplyChanges(button, targetItem)
 
 	self:updateModifyButtonState()
 	self:updateSelectedPerkVisuals()
+
+	local hand = modules.game_inventory and modules.game_inventory.getWeaponProficiencyHandItem and modules.game_inventory.getWeaponProficiencyHandItem()
+	if hand and hand:getId() == clientId and modules.game_interface and modules.game_interface.StatsBar then
+		local thingType = hand:getThingType()
+		local realHighlight = self:hasUnusedPerk(clientId, thingType)
+		modules.game_interface.StatsBar.onUpdateProficiencyData(self.cacheList[clientId], realHighlight, thingType)
+	end
+
+	if button == self.okButton then
+		self:onCloseWindow(self.closeButton)
+	end
 end
 
 function WeaponProficiency:updateSelectedPerkVisuals()
@@ -3456,30 +3564,6 @@ function WeaponProficiency:onResetWeapon(button)
 		return
 	end
 
-	local weaponEntry = self.cacheList[currentItem:getId()] or {}
-	local perksSize = table.size(weaponEntry.perks)
-
-	button:setOn(false)
-	self.applyButton:setOn(perksSize > 0)
-	self.okButton:setOn(perksSize > 0)
-	button:setTooltip("You don't have any perks to reset.")
-
-	if perksSize > 0 then
-		local text = "Apply changes to your perks"
-
-		self.applyButton:setTooltip(text)
-		self.okButton:setTooltip(text)
-		self.closeButton:setText("Cancel")
-
-		self.saveWeaponMissing = true
-	else
-		local text = "No changes have been made to your perks."
-
-		self.applyButton:setTooltip(text)
-		self.okButton:setTooltip(text)
-		self.closeButton:setText("Close")
-	end
-
 	for i, child in ipairs(self.perkPanel:getChildren()) do
 		local bonusDetail = self.bonusDetailPanel:getChildById("bonusDetail_" .. i)
 
@@ -3487,17 +3571,21 @@ function WeaponProficiency:onResetWeapon(button)
 			widget:getChildById("locked-perk"):setVisible(false)
 
 			if widget.active then
-				widget.blocked = false
-				widget.locked = false
 				widget.active = false
 
 				local borderWidget = widget:getChildById("border")
 				local hightLightWidget = widget:getChildById("highlight")
 
-				disableBonusIcon(widget, hightLightWidget, borderWidget, bonusDetail:recursiveGetChildById("bonusName"), widget.perkData)
+				disableBonusIcon(widget, hightLightWidget, borderWidget, bonusDetail and bonusDetail:recursiveGetChildById("bonusName"), widget.perkData)
+				updateManipulateRankWidget(widget, getBonusIconModifierEntry(widget), false)
 			end
 		end
 	end
+
+	self.selectedModifySlot = nil
+	self:updateModifyButtonState()
+	self:updateSelectedPerkVisuals()
+	self:checkPerksMatch(currentItem:getId())
 end
 
 function WeaponProficiency:onCloseWindow(button)
@@ -3638,8 +3726,30 @@ function WeaponProficiency:checkPerksMatch(itemId)
 		end
 	end
 
-	if canChangeWeaponPerks() and not allPerksMatch then
-		self.resetButton:setOn(true)
+	local hasAnyActivePerk = false
+	for _, perkRow in ipairs(self.perkPanel:getChildren()) do
+		if perkRow.currentPerkPanel then
+			for _, widget in pairs(perkRow.currentPerkPanel:getChildren()) do
+				if widget.active then
+					hasAnyActivePerk = true
+					break
+				end
+			end
+		end
+		if hasAnyActivePerk then
+			break
+		end
+	end
+
+	local inPz = canChangeWeaponPerks()
+	local canReset = inPz and hasAnyActivePerk
+
+	self.resetButton:setOn(canReset)
+	if not inPz then
+		self.resetButton:setTooltip("You can only reset your perks in a protection zone.")
+	elseif not hasAnyActivePerk then
+		self.resetButton:setTooltip("You don't have any perks to reset.")
+	else
 		self.resetButton:setTooltip("Reset your perks")
 	end
 

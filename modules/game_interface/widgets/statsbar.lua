@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_interface/widgets/statsbar.lua
+-- chunkname: @/game_interface/widgets/statsbar.lua
 
 local statsBarTop, statsBarBottom
 local statsBars = {}
@@ -2378,6 +2378,16 @@ function StatsBar.syncProficiencyHighlightWithHandWeapon()
 
 		lastProficiencyCache = {}
 	end
+
+	if WeaponProficiency and WeaponProficiency.cacheList and WeaponProficiency.cacheList[hid] then
+		local thingType = hand:getThingType()
+		if thingType then
+			local unused = WeaponProficiency:hasUnusedPerk(hid, thingType)
+			if unused ~= proficiencyPerkHighlightActive then
+				StatsBar.onUpdateProficiencyData(WeaponProficiency.cacheList[hid], unused, thingType)
+			end
+		end
+	end
 end
 
 function StatsBar.applyDefaultTopProficiencyLayout()
@@ -2697,7 +2707,12 @@ function StatsBar.onUpdateProficiencyData(itemCache, hasHighlight, thingType)
 		progressTooltip = string.format("Proficiency Progress: %s / %s", comma_value(itemCache.exp), comma_value(maxLevelExperience))
 	end
 
-	local showHighlight = proficiencyServerHighlightOn(hasHighlight)
+	local showHighlight = false
+	if WeaponProficiency and WeaponProficiency.hasUnusedPerk then
+		showHighlight = WeaponProficiency:hasUnusedPerk(thingType:getId(), thingType)
+	else
+		showHighlight = proficiencyServerHighlightOn(hasHighlight)
+	end
 
 	applyProficiencyTopBarWidgetsAllLayouts(percent, progressTooltip, showHighlight)
 

@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_rewardwall/game_rewardwall.lua
+-- chunkname: @/game_rewardwall/game_rewardwall.lua
 
 rewardWallController = Controller:new()
 
@@ -1333,9 +1333,24 @@ function rewardWallController:onhoverRewardType(event)
 	local rewardTexts = {}
 
 	if rewardType == bundleType.ITEMS then
+		local sampleNames = {}
+		if event.target.rewardItem and #event.target.rewardItem > 0 then
+			for i = 1, math.min(3, #event.target.rewardItem) do
+				local it = event.target.rewardItem[i]
+				if it and it.name and it.name ~= "" then
+					table.insert(sampleNames, it.name)
+				end
+			end
+		end
+
+		local sampleText = ""
+		if #sampleNames > 0 then
+			sampleText = " Among\nother items it contains: " .. table.concat(sampleNames, ", ")
+		end
+
 		rewardTexts = {
-			free = string.format("Reward for Free Accounts:\nPick %d %s from the list. Among\nother items it contains: a training\nsword, a training bow, a training\nwraps", freeAmount, freeAmount == 1 and "item" or "items"),
-			premium = string.format("Reward for Premium Accounts:\nPick %d %s from the list. Among\nother items it contains: a training\nsword, a training bow, a training\nwraps", premiumAmount, premiumAmount == 1 and "item" or "items")
+			free = string.format("Reward for Free Accounts:\nPick %d %s from the list.%s", freeAmount, freeAmount == 1 and "item" or "items", sampleText),
+			premium = string.format("Reward for Premium Accounts:\nPick %d %s from the list.%s", premiumAmount, premiumAmount == 1 and "item" or "items", sampleText)
 		}
 	elseif rewardType == bundleType.PREY then
 		local itemName = event.target.itemName or "Prey Wildcard"
