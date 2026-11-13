@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_cyclopedia/tab/charms/charms.lua
+-- chunkname: @/game_cyclopedia/tab/charms/charms.lua
 
 local UI, TypeCharmRadioGroup
 
@@ -96,12 +96,16 @@ local function updateResetAllCharmsCostDisplay()
 end
 
 local function isCreatureSelectableForCharm(creature, charmCategory)
+	if not creature then
+		return false
+	end
+
 	if charmCategory == charmCategory_t.CHARM_MAJOR then
-		return creature.showInMajorListState
+		return creature.showInMajorListState ~= false
 	end
 
 	if charmCategory == charmCategory_t.CHARM_MINOR then
-		return creature.showInMinorListState or (creature.monsterMinorState or 0) > 0
+		return creature.showInMinorListState == true or (creature.monsterMinorState or 0) > 0
 	end
 
 	return true
@@ -665,8 +669,13 @@ function Cyclopedia.getCharmDefinition(clientId)
 end
 
 function Cyclopedia.isCreatureCharmAssignable(raceId, charmCategory)
+	local targetId = tonumber(raceId)
+	if not targetId then
+		return false
+	end
+
 	for _, creature in ipairs(Cyclopedia.Charms.SelectableCreatures or {}) do
-		if creature.raceId == raceId then
+		if tonumber(creature.raceId) == targetId then
 			return isCreatureSelectableForCharm(creature, charmCategory)
 		end
 	end
@@ -715,10 +724,43 @@ local function formatCharmsData(charmsData)
 end
 
 function Cyclopedia.applyCharmsData(charmsData)
-	Cyclopedia.Charms.SelectableCreatures = charmsData.selectableCreatures or {}
 	Cyclopedia.Charms.resetAllCharmsCost = tonumber(charmsData.resetAllCharmsCost) or 0
 	Cyclopedia.Charms.List = formatCharmsData(charmsData)
 	Cyclopedia.Charms.points = charmsData.points
+
+	if charmsData.finishedMonsters then
+		Cyclopedia.Charms.finishedMonsters = charmsData.finishedMonsters
+	end
+
+	local majorAssigned = {}
+	local minorAssigned = {}
+	for _, charmData in ipairs(Cyclopedia.Charms.List or {}) do
+		if charmData.asignedStatus and charmData.raceId and charmData.raceId > 0 then
+			if charmData.category == charmCategory_t.CHARM_MAJOR then
+				majorAssigned[charmData.raceId] = true
+			elseif charmData.category == charmCategory_t.CHARM_MINOR then
+				minorAssigned[charmData.raceId] = true
+			end
+		end
+	end
+
+	local selectable = {}
+	if charmsData.selectableCreatures and #charmsData.selectableCreatures > 0 then
+		selectable = charmsData.selectableCreatures
+	elseif Cyclopedia.Charms.finishedMonsters then
+		for _, rawRaceId in ipairs(Cyclopedia.Charms.finishedMonsters) do
+			local raceId = tonumber(rawRaceId)
+			if raceId and raceId > 0 then
+				table.insert(selectable, {
+					raceId = raceId,
+					showInMajorListState = not majorAssigned[raceId],
+					showInMinorListState = not minorAssigned[raceId],
+					monsterMinorState = not minorAssigned[raceId] and 1 or 0
+				})
+			end
+		end
+	end
+	Cyclopedia.Charms.SelectableCreatures = selectable
 
 	if Cyclopedia.refreshBestiaryCharmUI then
 		Cyclopedia.refreshBestiaryCharmUI()
@@ -1290,15 +1332,13 @@ local function setupCreatureList(widget, UI_BASE)
 		return
 	end
 
-	UI_BASE.UnlockButton:setText("Select")
-
 	local monsters = buildSelectableMonsterList(widget.category)
 	local color = "#484848"
 
-	for index, raceId in ipairs(monsters) do
+	for _, raceId in ipairs(monsters) do
 		local creatureWidget = g_ui.createWidget("CharmCreatureName", UI_BASE.CreatureList)
 
-		creatureWidget:setId(index)
+		creatureWidget:setId(tostring(raceId))
 		creatureWidget:setText(formatCreatureName(g_things.getRaceData(raceId).name))
 
 		creatureWidget.raceId = raceId
@@ -1309,10 +1349,8 @@ local function setupCreatureList(widget, UI_BASE)
 		color = color == "#484848" and "#414141" or "#484848"
 	end
 
-	UI_BASE.UnlockButton:setEnabled(false)
-	setActionButtonTextColor(UI_BASE.UnlockButton)
 	setCharmSearchAllowed(true)
-	UI_BASE.CreaturesLabel:setEnabled(true)
+	UI_BASE.CreaturesLabel:setEnabled(false)
 	setActionButtonTextColor(UI_BASE.CreaturesLabel)
 	bindCharmCreatureListKeys(UI.InformationBase.PanelCreatureList, UI_BASE.CreatureList)
 end
@@ -1430,7 +1468,14 @@ function Cyclopedia.selectCreatureCharm(widget, isChecked)
 		return
 	end
 
+	local selectBtn = UI and UI.InformationBase and UI.InformationBase.panelSelectCreature and UI.InformationBase.panelSelectCreature.CreaturesLabel
+
 	if not isChecked then
+		if selectBtn then
+			selectBtn:setEnabled(false)
+			setActionButtonTextColor(selectBtn)
+		end
+		Cyclopedia.Charms.SelectedCreature = nil
 		return
 	end
 
@@ -1460,8 +1505,11 @@ function Cyclopedia.selectCreatureCharm(widget, isChecked)
 	UI_BASE.InfoBase.sprite:setVisible(true)
 	UI_BASE.InfoBase.sprite:setOutfit(g_things.getRaceData(widget.raceId).outfit)
 	UI_BASE.InfoBase.sprite:getCreature():setStaticWalking(1000)
-	UI_BASE.UnlockButton:setEnabled(true)
-	setActionButtonTextColor(UI_BASE.UnlockButton)
+
+	if selectBtn then
+		selectBtn:setEnabled(true)
+		setActionButtonTextColor(selectBtn)
+	end
 
 	Cyclopedia.Charms.SelectedCreature = widget.raceId
 end

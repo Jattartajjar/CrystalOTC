@@ -1,6 +1,7 @@
 MessageBoxBodyCip < UILabel
   font: Verdana Bold-11px-new
   color: #c0c0c0ff
+  text-align: center
 
 MessageBoxWindow < UIMessageBox
   icon-rect: 4 4 16 16
