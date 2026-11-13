@@ -426,9 +426,6 @@ if ThingType then
 	install(ThingType, "isDualWielding", function()
 		return false
 	end)
-	install(ThingType, "isCyclopediaItem", function(self)
-		return self.getCyclopediaType and self:getCyclopediaType() > 0 or false
-	end)
 end
 
 if g_client then
@@ -473,13 +470,67 @@ install(g_game, "requestBestiaryOverviewSearch", function(raceIds)
 	return g_game.requestBestiaryOverview("", true, raceIds or {})
 end)
 
+local EXTENDED_MONSTERS = {
+	[2802] = { name = "Winged Jaracal", outfit = { type = 1961, head = 113, body = 40, legs = 95, feet = 95, addons = 1 }, stars = 4 },
+	[2803] = { name = "Iceplume Strider", outfit = { type = 1950, head = 0, body = 51, legs = 0, feet = 0, addons = 0 }, stars = 4 },
+	[2804] = { name = "Silverfrost Sentinel", outfit = { type = 1951, head = 81, body = 113, legs = 0, feet = 0, addons = 0 }, stars = 4 },
+	[2805] = { name = "True Feverbloom Asura", outfit = { type = 1068, head = 62, body = 61, legs = 114, feet = 15, addons = 1 }, stars = 4 },
+	[2829] = { name = "Moonspawn Juggernaut", outfit = { type = 1972, head = 0, body = 0, legs = 0, feet = 0, addons = 0 }, stars = 4 },
+	[2839] = { name = "Radiant Warden", outfit = { type = 1964, head = 0, body = 0, legs = 0, feet = 0, addons = 0 }, stars = 5 },
+	[2840] = { name = "Devoted Radiant Warden", outfit = { type = 1964, head = 0, body = 0, legs = 0, feet = 0, addons = 1 }, stars = 5 },
+	[2841] = { name = "Radiant Paragon", outfit = { type = 1966, head = 0, body = 0, legs = 0, feet = 0, addons = 2 }, stars = 5 },
+	[2842] = { name = "Devoted Radiant Paragon", outfit = { type = 1966, head = 0, body = 0, legs = 0, feet = 0, addons = 1 }, stars = 5 },
+	[2843] = { name = "Radiant Acolyte", outfit = { type = 1969, head = 0, body = 0, legs = 0, feet = 0, addons = 0 }, stars = 5 },
+	[2844] = { name = "Devoted Radiant Acolyte", outfit = { type = 1969, head = 0, body = 0, legs = 0, feet = 0, addons = 3 }, stars = 5 },
+	[2845] = { name = "Radiant Templar", outfit = { type = 1965, head = 0, body = 0, legs = 0, feet = 0, addons = 0 }, stars = 5 },
+	[2846] = { name = "Devoted Radiant Templar", outfit = { type = 1965, head = 0, body = 0, legs = 0, feet = 0, addons = 3 }, stars = 5 },
+	[2847] = { name = "Radiant Inquisitor", outfit = { type = 1967, head = 0, body = 0, legs = 0, feet = 0, addons = 0 }, stars = 5 },
+	[2848] = { name = "Devoted Radiant Inquisitor", outfit = { type = 1967, head = 0, body = 0, legs = 0, feet = 0, addons = 3 }, stars = 5 },
+	[2849] = { name = "Radiant Zealot", outfit = { type = 1968, head = 0, body = 0, legs = 0, feet = 0, addons = 0 }, stars = 5 },
+	[2850] = { name = "Devoted Radiant Zealot", outfit = { type = 1968, head = 0, body = 0, legs = 0, feet = 0, addons = 3 }, stars = 5 },
+	[2851] = { name = "Moonspawn Blightspitter", outfit = { type = 1970, head = 0, body = 0, legs = 0, feet = 0, addons = 0 }, stars = 4 },
+	[2852] = { name = "Moonspawn Oozecrown", outfit = { type = 1971, head = 0, body = 0, legs = 0, feet = 0, addons = 0 }, stars = 4 },
+	[2856] = { name = "Jaracal", outfit = { type = 1961, head = 82, body = 97, legs = 76, feet = 76, addons = 0 }, stars = 4 },
+	[2857] = { name = "Moonstone Excavator", outfit = { type = 1952, head = 0, body = 0, legs = 0, feet = 0, addons = 1 }, stars = 4 },
+	[2858] = { name = "Moonstone Overseer", outfit = { type = 1956, head = 0, body = 0, legs = 0, feet = 0, addons = 0 }, stars = 4 }
+}
+
+for raceId, data in pairs(EXTENDED_MONSTERS) do
+	data.raceId = raceId
+	data.boss = false
+end
+
+local origGetRaceData = g_things.getRaceData
+g_things.getRaceData = function(raceId)
+	local rId = tonumber(raceId) or 0
+	if origGetRaceData then
+		local data = origGetRaceData(rId)
+		if data and data.raceId and data.raceId ~= 0 then
+			return data
+		end
+	end
+	if EXTENDED_MONSTERS[rId] then
+		return EXTENDED_MONSTERS[rId]
+	end
+	return { raceId = 0, name = "", boss = false }
+end
+
 install(g_things, "getMonsterList", function()
 	local races = g_things.getRacesByName("")
 	local monsters = {}
+	local seen = {}
 
 	for _, race in ipairs(races or {}) do
 		if not race.boss then
 			table.insert(monsters, race)
+			seen[race.raceId] = true
+		end
+	end
+
+	for raceId, ext in pairs(EXTENDED_MONSTERS) do
+		if not seen[raceId] then
+			table.insert(monsters, ext)
+			seen[raceId] = true
 		end
 	end
 

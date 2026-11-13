@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_taskboard/menus/task_shop.lua
+-- chunkname: @/game_taskboard/menus/task_shop.lua
 
 TaskBoard.TaskShop = {}
 
@@ -70,6 +70,7 @@ function onEngineTaskHuntingShopData(shopData)
 			description = o.description or "",
 			price = tonumber(o.price) or 0,
 			bought = tonumber(o.bought) or 0,
+			status = tonumber(o.status) or ((tonumber(o.bought) == 1) and STATUS_PURCHASED or STATUS_BUYABLE),
 			clientId = clientId,
 			lookType = lookType,
 			addons = tonumber(o.lookAddons) or 0,

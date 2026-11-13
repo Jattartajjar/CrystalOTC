@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_taskboard/menus/weekly_task.lua
+-- chunkname: @/game_taskboard/menus/weekly_task.lua
 
 TaskBoard.WeeklyTask = {}
 
@@ -66,7 +66,7 @@ local function getDeliverySlotsList()
 	return deliveryTasks:recursiveGetChildById("deliverySlotsList")
 end
 
-local function setKillSlotCreature(panel, raceData)
+local function setKillSlotCreature(panel, raceData, isAnyCreature)
 	local outfitIcon = panel:getChildById("outfitIcon")
 
 	if not outfitIcon then
@@ -89,7 +89,7 @@ local function setKillSlotCreature(panel, raceData)
 		if c then
 			c:setStaticWalking(1000)
 		end
-	else
+	elseif isAnyCreature then
 		-- Keep the dark /images/ui/item slot frame (from the .otui) and show the arbitrary
 		-- icon as a child over it, so "Any Creature" matches the other slots instead of
 		-- replacing the frame with a lighter standalone icon.
@@ -98,10 +98,16 @@ local function setKillSlotCreature(panel, raceData)
 		if anyCreatureIcon then
 			anyCreatureIcon:show()
 		end
+	else
+		outfitIcon:setVisible(false)
+
+		if anyCreatureIcon then
+			anyCreatureIcon:hide()
+		end
 	end
 end
 
-local function fillKillSlot(panel, name, current, target, raceData)
+local function fillKillSlot(panel, name, current, target, raceData, isAnyCreature)
 	if not panel then
 		return
 	end
@@ -113,7 +119,7 @@ local function fillKillSlot(panel, name, current, target, raceData)
 	end
 
 	panel:setText(displayName)
-	setKillSlotCreature(panel, raceData)
+	setKillSlotCreature(panel, raceData, isAnyCreature)
 
 	local currentLabel = panel:getChildById("killAnyMonstersLabel")
 
@@ -294,7 +300,7 @@ local function setWeeklyTrackerSelected(slotIndex, raceId, monstersKilled, total
 		local rid = tonumber(raceId) or 0
 		local raceData = g_things.getRaceData(rid)
 
-		creatureName = raceData and raceData.raceId ~= 0 and raceData.name or "?"
+		creatureName = (raceData and raceData.raceId ~= 0 and raceData.name and raceData.name ~= "") and raceData.name or (rid > 0 and string.format("Creature (%d)", rid) or "?")
 
 		if creature then
 			if raceData and raceData.outfit then
@@ -376,7 +382,7 @@ local function buildKillSlots(weeklyTasks)
 		return
 	end
 
-	fillKillSlot(anyPanel, "Any Creature", weeklyTasks.killedsAnyMonsters, weeklyTasks.killsAnyMonsters, nil)
+	fillKillSlot(anyPanel, "Any Creature", weeklyTasks.killedsAnyMonsters, weeklyTasks.killsAnyMonsters, nil, true)
 	setWeeklyTrackerSelected(1, nil, weeklyTasks.killedsAnyMonsters, weeklyTasks.killsAnyMonsters, true)
 
 	local unlockKillButton = killSlotsList:getParent():getChildById("unlockKillButton")
@@ -402,9 +408,9 @@ local function buildKillSlots(weeklyTasks)
 
 		local rid = tonumber(entry.raceId) or 0
 		local raceData = g_things.getRaceData(rid)
-		local raceName = raceData and raceData.raceId ~= 0 and raceData.name or "?"
+		local raceName = (raceData and raceData.raceId ~= 0 and raceData.name and raceData.name ~= "") and raceData.name or (rid > 0 and string.format("Creature (%d)", rid) or "?")
 
-		fillKillSlot(panel, raceName, entry.totalMonsterKilleds, entry.totalKills, raceData)
+		fillKillSlot(panel, raceName, entry.totalMonsterKilleds, entry.totalKills, raceData, false)
 
 		if slotIndex <= maxSpeciesSlots then
 			setWeeklyTrackerSelected(slotIndex + 1, rid, entry.totalMonsterKilleds, entry.totalKills, false)
