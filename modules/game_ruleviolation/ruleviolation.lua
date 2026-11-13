@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_ruleviolation/ruleviolation.lua
+-- chunkname: @/game_ruleviolation/ruleviolation.lua
 
 rvreasons = {}
 rvreasons[1] = tr("1a) Offensive Name")
@@ -254,9 +254,15 @@ function init()
 	reasonsTextList = ruleViolationWindow:getChildById("reasonList")
 	actionsTextList = ruleViolationWindow:getChildById("actionList")
 
-	g_keyboard.bindKeyDown("Ctrl+U", function()
-		show()
-	end)
+	Keybind.new("Dialogs", "Open Rule Violation Window", "Ctrl+U", "")
+	Keybind.bind("Dialogs", "Open Rule Violation Window", {
+		{
+			type = KEY_DOWN,
+			callback = function()
+				show()
+			end
+		}
+	})
 
 	if g_game.isOnline() then
 		loadReasons()
@@ -267,7 +273,7 @@ function terminate()
 	disconnect(g_game, {
 		onGMActions = loadReasons
 	})
-	g_keyboard.unbindKeyDown("Ctrl+U")
+	Keybind.delete("Dialogs", "Open Rule Violation Window")
 	hidePlayerReportWindow()
 	ruleViolationWindow:destroy()
 end

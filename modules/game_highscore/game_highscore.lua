@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_highscore/game_highscore.lua
+-- chunkname: @/game_highscore/game_highscore.lua
 
 local highscoresWindow, highscoreButton, gameworldbox, vocationbox, categorybox, highscoreList
 local isFilled = false
@@ -105,9 +105,17 @@ function highscoreController:onInit()
 		onProcessHighscores = onProcessHighscores
 	})
 	initInterface()
+	Keybind.new("Dialogs", "Open Highscores Dialog", "", "")
+	Keybind.bind("Dialogs", "Open Highscores Dialog", {
+		{
+			type = KEY_DOWN,
+			callback = toggle
+		}
+	})
 end
 
 function highscoreController:onTerminate()
+	Keybind.delete("Dialogs", "Open Highscores Dialog")
 	resetFilters()
 
 	highscoresWindow = nil
@@ -545,8 +553,6 @@ end
 
 function highscoreController:onGameStart()
 	highscoreButton = modules.game_mainpanel.addToggleButton("highscoresButton", tr("Open Highscores Dialog"), "/images/options/button_highscores", toggle)
-
-	g_keyboard.bindKeyDown("Ctrl+H", toggle)
 end
 
 function highscoreController:onGameEnd()
@@ -561,7 +567,6 @@ function highscoreController:onGameEnd()
 	end
 
 	resetFilters()
-	g_keyboard.unbindKeyDown("Ctrl+H")
 end
 
 function toggle()

@@ -281,12 +281,24 @@ end
 
 function bindKeys()
 	gameRootPanel:setAutoRepeatDelay(50)
-	g_keyboard.bindKeyPress("Ctrl+=", function()
-		requestSmoothZoom(-1)
-	end, gameRootPanel)
-	g_keyboard.bindKeyPress("Ctrl+-", function()
-		requestSmoothZoom(1)
-	end, gameRootPanel)
+	Keybind.new("UI", "Zoom in", "Ctrl+=", "")
+	Keybind.bind("UI", "Zoom in", {
+		{
+			type = KEY_PRESS,
+			callback = function()
+				requestSmoothZoom(-1)
+			end
+		}
+	}, gameRootPanel)
+	Keybind.new("UI", "Zoom out", "Ctrl+-", "")
+	Keybind.bind("UI", "Zoom out", {
+		{
+			type = KEY_PRESS,
+			callback = function()
+				requestSmoothZoom(1)
+			end
+		}
+	}, gameRootPanel)
 	Keybind.new("Movement", "Stop All Actions", "Escape", "", true)
 	Keybind.bind("Movement", "Stop All Actions", {
 		{
@@ -327,7 +339,13 @@ function bindKeys()
 		modules.game_textmessage.bindClearOldestHotkey(gameRootPanel)
 	end
 
-	g_keyboard.bindKeyDown("Ctrl+.", nextViewMode, gameRootPanel)
+	Keybind.new("UI", "Next View Mode", "Ctrl+.", "")
+	Keybind.bind("UI", "Next View Mode", {
+		{
+			type = KEY_DOWN,
+			callback = nextViewMode
+		}
+	}, gameRootPanel)
 end
 
 function terminate()

@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_console/console.lua
+-- chunkname: @/game_console/console.lua
 
 SpeakTypesSettings = {
 	none = {},
@@ -468,7 +468,7 @@ function init()
 	}, consolePanel)
 	Keybind.new("Chat", "Send current chat line", {
 		[CHAT_MODE.ON] = "Enter",
-		[CHAT_MODE.OFF] = "Enter"
+		[CHAT_MODE.OFF] = ""
 	}, "")
 	Keybind.bind("Chat", "Send current chat line", {
 		{
@@ -951,40 +951,11 @@ function switchChatOnCall()
 		return
 	end
 
-	if not consoleTextEdit:isEditable() then
-		if not consoleToggleChat.isChecked then
-			updateChatMode()
-
-			return
-		end
-
-		switchChat(true)
-
-		temporaryChatViaEnter = true
-
-		syncToggleChatToTypingButton()
-
+	if not isChatEnabled() then
 		return
 	end
 
-	local wasTemporary = temporaryChatViaEnter
-	local message = getChatInputForSend():getText()
-
-	if #message > 0 then
-		sendCurrentMessage()
-
-		if wasTemporary then
-			switchChat(false)
-			syncToggleChatToWASDButton()
-		end
-
-		return
-	end
-
-	if wasTemporary then
-		switchChat(false)
-		syncToggleChatToWASDButton()
-	end
+	sendCurrentMessage()
 end
 
 function disableChatOnCall()
@@ -998,19 +969,6 @@ function disableChatOnCall()
 		end
 
 		return
-	end
-
-	if temporaryChatViaEnter then
-		switchChat(false)
-		syncToggleChatToWASDButton()
-
-		return
-	end
-
-	if not consoleToggleChat.isChecked then
-		toggleChat()
-	else
-		updateChatMode()
 	end
 end
 
@@ -1266,7 +1224,7 @@ function save()
 	local settings = {}
 
 	settings.messageHistory = messageHistory
-	settings.wasdMode = consoleToggleChat.isChecked or temporaryChatViaEnter
+	settings.wasdMode = consoleToggleChat.isChecked
 
 	g_settings.setNode("game_console", settings)
 end
