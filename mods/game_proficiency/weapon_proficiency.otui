@@ -713,16 +713,12 @@ NewMainWindow
     margin-bottom: 12
     margin-right: 6
     tooltip-delayed: true
-    on: false
-    $!on:
-      color: #dfdfdf88
-      opacity: 0.8
-      change-cursor-image: false
+    on: true
     $on pressed:
       text-offset: 1 1
     $!on pressed:
       text-offset: 0 1
-    @onClick: modules.game_proficiency.WeaponProficiency:onApplyChanges(self)
+    @onClick: modules.game_proficiency.WeaponProficiency:onOkClick(self)
 
   UIWidget
     id: dustBalance
