@@ -2724,7 +2724,7 @@ void ProtocolGame::parsePlayerSkills(const InputMessagePtr& msg) const
         const uint16_t magicLevel = msg->getU16();
         const uint16_t baseMagicLevel = msg->getU16();
         msg->getU16(); // base + loyalty bonus(?)
-        const uint8_t percent = msg->getU16() / 100;
+        const uint16_t percent = msg->getU16();
 
         m_localPlayer->setMagicLevel(magicLevel, percent);
         m_localPlayer->setBaseMagicLevel(baseMagicLevel);
@@ -2744,7 +2744,7 @@ void ProtocolGame::parsePlayerSkills(const InputMessagePtr& msg) const
 
         if (g_game.getClientVersion() >= 1281) {
             msg->getU16(); // base + loyalty bonus(?)
-            levelPercent = msg->getU16() / 100;
+            levelPercent = msg->getU16();
         } else {
             levelPercent = msg->getU8();
         }

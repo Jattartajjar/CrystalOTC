@@ -8,7 +8,11 @@ local destroyOfflineTrainingDialog
 
 -- must come BEFORE setSkillPercent, which uses it (in the decompiled file it was lower -> nil)
 local function skillPercentForBar(rawPercent)
-	return math.floor((rawPercent or 0) / 100)
+	rawPercent = rawPercent or 0
+	if rawPercent > 100 then
+		return math.floor(rawPercent / 100)
+	end
+	return math.floor(rawPercent)
 end
 
 local function setSkillValue(id, value)
@@ -59,7 +63,11 @@ local function setSkillPercent(id, percent, tooltip, color)
 end
 
 local function skillPercentToGoFormatted(rawPercent)
-	return string.format("%.2f", 100 - (rawPercent or 0) / 100)
+	rawPercent = rawPercent or 0
+	if rawPercent > 100 then
+		return string.format("%.2f", 100 - rawPercent / 100)
+	end
+	return string.format("%.2f", 100 - rawPercent)
 end
 
 local function skillPercentToGoTooltip(rawPercent)

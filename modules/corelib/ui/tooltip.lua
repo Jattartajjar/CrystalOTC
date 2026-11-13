@@ -1,9 +1,10 @@
-﻿-- chunkname: @/corelib/ui/tooltip.lua
+-- chunkname: @/corelib/ui/tooltip.lua
 
 g_tooltip = {}
 
 local toolTipLabel, SpecialToolTipLabel, currentHoveredWidget, pendingHoveredWidget, pendingTooltipEvent
 local tooltipDelay = 500
+local moveToolTipConnected = false
 
 local function tooltipPointerStillOver(widget)
 	if not widget then
@@ -19,6 +20,40 @@ local function tooltipPointerStillOver(widget)
 	end
 
 	return widget:containsPoint(g_window.getMousePosition())
+end
+
+local function isWidgetOrRelatedHovered(target)
+	if not target or not currentHoveredWidget then
+		return false
+	end
+
+	if currentHoveredWidget == target then
+		return true
+	end
+
+	local cur = currentHoveredWidget:getParent()
+	while cur do
+		if cur == target then
+			return true
+		end
+		if not cur.getParent then
+			break
+		end
+		cur = cur:getParent()
+	end
+
+	local tcur = target:getParent()
+	while tcur do
+		if tcur == currentHoveredWidget then
+			return true
+		end
+		if not tcur.getParent then
+			break
+		end
+		tcur = tcur:getParent()
+	end
+
+	return false
 end
 
 local function hasHtmlMarkup(text)
@@ -175,7 +210,7 @@ local function displayWidgetTooltip(widget)
 	end
 
 	if widget.tooltip then
-		g_tooltip.display(widget.tooltip)
+		g_tooltip.display(widget.tooltip, widget)
 
 		currentHoveredWidget = widget
 	elseif widget.specialtooltip then
@@ -492,7 +527,7 @@ function g_tooltip.terminate()
 	g_tooltip = nil
 end
 
-function g_tooltip.display(text)
+function g_tooltip.display(text, widget)
 	if type(text) == "string" and text:len() == 0 or type(text) == "table" and #text == 0 then
 		return
 	end
@@ -530,6 +565,9 @@ function g_tooltip.display(text)
 
 	toolTipLabel:resizeToText()
 	toolTipLabel:resize(toolTipLabel:getWidth() + 4, toolTipLabel:getHeight() + 4)
+
+	local alreadyVisible = toolTipLabel:isVisible() and toolTipLabel:getOpacity() > 0.8
+
 	toolTipLabel:show()
 	raiseTooltipWidget(toolTipLabel)
 	toolTipLabel:enable()
@@ -545,11 +583,16 @@ function g_tooltip.display(text)
 		end
 	end
 
-	g_effects.fadeIn(toolTipLabel, 100)
+	if not alreadyVisible then
+		g_effects.fadeIn(toolTipLabel, 100)
+	end
 	moveToolTip(true)
-	connect(rootWidget, {
-		onMouseMove = moveToolTip
-	})
+	if not moveToolTipConnected then
+		connect(rootWidget, {
+			onMouseMove = moveToolTip
+		})
+		moveToolTipConnected = true
+	end
 end
 
 function g_tooltip.parseColoreDisplay(text)
@@ -656,6 +699,7 @@ function g_tooltip.hide()
 	disconnect(rootWidget, {
 		onMouseMove = moveToolTip
 	})
+	moveToolTipConnected = false
 end
 
 function g_tooltip.hideSpecial()
@@ -672,6 +716,20 @@ function UIWidget:setTooltip(text)
 		tooltipWidget.tooltip = text
 	else
 		self.tooltip = text
+	end
+
+	if toolTipLabel and toolTipLabel:isVisible() and toolTipLabel:getOpacity() > 0.1 and currentHoveredWidget then
+		local isTargetHovered = isWidgetOrRelatedHovered(self)
+			or (tooltipWidget and isWidgetOrRelatedHovered(tooltipWidget))
+			or (self.isHovered and self:isHovered() and tooltipPointerStillOver(self))
+
+		if isTargetHovered and tooltipPointerStillOver(currentHoveredWidget) then
+			if text == nil or text == "" then
+				g_tooltip.hide()
+			else
+				g_tooltip.display(text, currentHoveredWidget)
+			end
+		end
 	end
 end
 
