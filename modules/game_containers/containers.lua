@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_containers/containers.lua
+-- chunkname: @/game_containers/containers.lua
 local applySortToOpenContainers -- forward declaration (used before its declaration in the decompiled file)
 
 containerSettings = nil
@@ -1767,6 +1767,35 @@ function showContainersContextMenu(widget, mousePos, mouseButton)
 		end
 	end
 
+	local containerItem = sourceContainer and sourceContainer.getContainerItem and sourceContainer:getContainerItem()
+	if containerItem and containerItem:getId() == 19250 then
+		local separator = g_ui.createWidget("HorizontalSeparator", menu)
+		separator:setMarginTop(2)
+		separator:setMarginBottom(3)
+
+		local collectOption = g_ui.createWidget("ContainersListOption", menu)
+		collectOption:setId("collectAll")
+		collectOption:setText(tr("Collect All"))
+		collectOption:setEnabled(true)
+		collectOption:setColor("#ffffff")
+
+		local function doCollect()
+			local pos = containerItem:getPosition()
+			local stackPos = math.max(0, containerItem:getStackPos() or 0)
+			g_game.sendRewardCollectAll(pos, 19250, stackPos)
+			menu:destroy()
+		end
+
+		collectOption.onClick = doCollect
+		function collectOption.onMouseRelease(w, mPos, mButton)
+			if mButton == MouseLeftButton then
+				doCollect()
+				return true
+			end
+			return false
+		end
+	end
+
 	local buttonPos = widget:getPosition()
 	local buttonSize = widget:getSize()
 	local menuWidth = menu:getWidth()
@@ -2229,8 +2258,20 @@ function onContainerOpen(container, previousContainer)
 		containerWindow:setText(name)
 	end
 
-	containerItemWidget:setItem(container:getContainerItem())
-	containerItemWidget:setPhantom(true)
+	local containerItem = container:getContainerItem()
+	containerItemWidget:setItem(containerItem)
+	if containerItem and containerItem:getId() == 19250 then
+		containerItemWidget:setPhantom(false)
+		function containerItemWidget.onMouseRelease(widget, mousePos, mouseButton)
+			if mouseButton == MouseRightButton and modules.game_interface and modules.game_interface.createThingMenu then
+				modules.game_interface.createThingMenu(mousePos, containerItem, containerItem)
+				return true
+			end
+			return false
+		end
+	else
+		containerItemWidget:setPhantom(true)
+	end
 	containerPanel:destroyChildren()
 
 	local layout = containerPanel:getLayout()

@@ -135,7 +135,6 @@ local missingSends = {
 	"closeContainerByItemId",
 	"organizeContainer",
 	"useHireling",
-	"sendRewardCollectAll",
 	"reportRuleViolationReport",
 	"requestSearchLocker",
 	"closeSearchLocker",
