@@ -1,4 +1,4 @@
-﻿-- chunkname: @/corelib/ui/uimessagebox.lua
+-- chunkname: @/corelib/ui/uimessagebox.lua
 
 if not UIMiniWindow then
 	dofile("uiminiwindow")
@@ -12,65 +12,109 @@ function UIMessageBox.create(title, okCallback, cancelCallback)
 	return calendar
 end
 
+local function formatWrappedText(str, maxCharsPerLine)
+	if not str or type(str) ~= "string" or #str == 0 then
+		return str or ""
+	end
+
+	maxCharsPerLine = maxCharsPerLine or 86
+
+	local resultLines = {}
+	local pos = 1
+	while pos <= #str do
+		local lineEnd = str:find("\n", pos, true) or (#str + 1)
+		local paragraph = str:sub(pos, lineEnd - 1):gsub("\r", "")
+		pos = lineEnd + 1
+
+		if #paragraph <= maxCharsPerLine then
+			table.insert(resultLines, paragraph)
+		else
+			local current = ""
+			for word in paragraph:gmatch("%S+") do
+				if #current == 0 then
+					current = word
+				elseif #current + 1 + #word <= maxCharsPerLine then
+					current = current .. " " .. word
+				else
+					table.insert(resultLines, current)
+					current = word
+				end
+			end
+			if #current > 0 then
+				table.insert(resultLines, current)
+			end
+		end
+	end
+
+	return table.concat(resultLines, "\n")
+end
+
 function UIMessageBox.display(title, message, buttons, onEnterCallback, onEscapeCallback)
 	local staticSizes = {
 		width = {
-			min = 116,
-			max = 916
+			min = 504,
+			max = 864
 		},
 		height = {
-			min = 56,
-			max = 616
+			min = 100,
+			max = 600
 		}
 	}
-	local currentSizes = {
-		width = 0,
-		height = 0
-	}
+
 	local messageBox = g_ui.createWidget("MessageBoxWindow", rootWidget)
 
 	messageBox.title = messageBox:getChildById("title")
-
 	messageBox.title:setText(title)
 
+	local formattedMessage = formatWrappedText(message, 86)
 	messageBox.content = messageBox:getChildById("content")
-
-	messageBox.content:setText(message)
+	messageBox.content:setText(formattedMessage)
 
 	if messageBox.content.setFont then
 		messageBox.content:setFont("Verdana Bold-11px-new")
 	end
 
-	messageBox.content:resizeToText()
-	messageBox.content:resize(messageBox.content:getWidth(), messageBox.content:getHeight())
+	if messageBox.content.setTextAlign then
+		messageBox.content:setTextAlign(AlignCenter)
+	end
 
-	currentSizes.width = currentSizes.width + messageBox.content:getWidth() + 32
-	currentSizes.height = currentSizes.height + messageBox.content:getHeight() + 20
+	if messageBox.content.resizeToText then
+		messageBox.content:resizeToText()
+	end
+
 	messageBox.holder = messageBox:getChildById("holder")
-	currentSizes.height = currentSizes.height + 22
 
+	local totalButtonsWidth = 0
+	local buttonHeight = 22
 	for i = 1, #buttons do
 		local button = messageBox:addButton(buttons[i].text, buttons[i].callback)
 
 		button:addAnchor(AnchorTop, "parent", AnchorTop)
 		button:setTextOffset(topoint(0 .. " " .. 0))
+		buttonHeight = math.max(buttonHeight, button:getHeight())
 
 		if i == 1 then
 			button:addAnchor(AnchorRight, "parent", AnchorRight)
-
-			currentSizes.height = currentSizes.height + button:getHeight() + 22
+			totalButtonsWidth = totalButtonsWidth + button:getWidth()
 		else
 			button:addAnchor(AnchorRight, "prev", AnchorLeft)
 			button:setMarginRight(6)
+			totalButtonsWidth = totalButtonsWidth + button:getWidth() + 6
 		end
 	end
 
-	messageBox:setWidth(math.min(staticSizes.width.max, math.max(staticSizes.width.min, currentSizes.width)))
-	messageBox:setHeight(math.min(staticSizes.height.max, math.max(staticSizes.height.min, currentSizes.height)))
+	local titleWidth = (messageBox.title.getTextSize and messageBox.title:getTextSize().width) or 100
+	local contentWidth = messageBox.content:getWidth()
+	local contentHeight = messageBox.content:getHeight()
 
-	if messageBox.content and messageBox.content.setFont then
-		messageBox.content:setFont("Verdana Bold-11px-new")
-	end
+	local targetWidth = math.max(staticSizes.width.min, math.max(contentWidth + 48, titleWidth + 48, totalButtonsWidth + 48))
+	targetWidth = math.min(staticSizes.width.max, targetWidth)
+
+	local targetHeight = 29 + contentHeight + 11 + 2 + 11 + buttonHeight + 16
+	targetHeight = math.min(staticSizes.height.max, math.max(staticSizes.height.min, targetHeight))
+
+	messageBox:setWidth(targetWidth)
+	messageBox:setHeight(targetHeight)
 
 	if onEnterCallback then
 		connect(messageBox, {

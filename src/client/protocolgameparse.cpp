@@ -3940,23 +3940,35 @@ void ProtocolGame::parseChangeMapAwareRange(const InputMessagePtr& msg)
 void ProtocolGame::parseCreaturesMark(const InputMessagePtr& msg)
 {
     const uint32_t creatureId = msg->getU32();
-    const bool isPermanent = g_game.getClientVersion() >= 1076 ? msg->getU8() == 0 : false;
     const uint8_t markType = msg->getU8();
+    const uint8_t weaponType = msg->getU8();
 
     const auto& creature = g_map.getCreatureById(creatureId);
     if (!creature) {
-        g_logger.traceDebug("ProtocolGame::parseTrappers: could not get creature with id {}", creatureId);
+        g_logger.traceDebug("ProtocolGame::parseCreaturesMark: could not get creature with id {}", creatureId);
         return;
     }
 
+    if (markType == 3 && weaponType >= 1 && weaponType <= 6) {
+        static const uint16_t weaponEffects[] = { 0, 304, 305, 306, 309, 307, 308 };
+        const uint16_t effectId = weaponEffects[weaponType];
+        if (effectId > 0 && g_things.isValidDatId(effectId, ThingCategoryEffect)) {
+            const auto& effect = std::make_shared<Effect>();
+            effect->setId(effectId);
+            g_map.addThing(effect, creature->getPosition());
+        }
+        return;
+    }
+
+    const bool isPermanent = g_game.getClientVersion() >= 1076 ? markType == 0 : false;
     if (isPermanent) {
-        if (markType == 0xff) {
+        if (weaponType == 0xff) {
             creature->hideStaticSquare();
         } else {
-            creature->showStaticSquare(Color::from8bit(markType != 0 ? markType : 1));
+            creature->showStaticSquare(Color::from8bit(weaponType != 0 ? weaponType : 1));
         }
     } else {
-        creature->addTimedSquare(markType);
+        creature->addTimedSquare(weaponType);
     }
 }
 
