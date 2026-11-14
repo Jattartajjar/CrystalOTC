@@ -301,6 +301,7 @@ public:
     // >= 984 browse field
     void browseField(const Position& position);
     void seekInContainer(uint8_t containerId, uint16_t index);
+    void sendRewardCollectAll(const Position& position, uint16_t itemId, uint8_t stackpos);
 
     // >= 1080 ingame store
     void buyStoreOffer(const uint32_t offerId, const uint8_t action, const std::string_view& name, const uint8_t type, const std::string_view& location);

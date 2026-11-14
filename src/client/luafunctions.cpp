@@ -383,6 +383,7 @@ void Client::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_game", "answerModalDialog", &Game::answerModalDialog, &g_game);
     g_lua.bindSingletonFunction("g_game", "browseField", &Game::browseField, &g_game);
     g_lua.bindSingletonFunction("g_game", "seekInContainer", &Game::seekInContainer, &g_game);
+    g_lua.bindSingletonFunction("g_game", "sendRewardCollectAll", &Game::sendRewardCollectAll, &g_game);
     g_lua.bindSingletonFunction("g_game", "buyStoreOffer", &Game::buyStoreOffer, &g_game);
     g_lua.bindSingletonFunction("g_game", "sendRequestStoreSearch", &Game::sendRequestStoreSearch, &g_game);
     g_lua.bindSingletonFunction("g_game", "sendRequestStoreOfferById", &Game::sendRequestStoreOfferById, &g_game);

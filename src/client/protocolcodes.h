@@ -392,7 +392,8 @@ namespace Proto
         ClientRequestStoreOffers = 251,
         ClientBuyStoreOffer = 252,
         ClientOpenTransactionHistory = 253,
-        ClientRequestTransactionHistory = 254
+        ClientRequestTransactionHistory = 254,
+        ClientRewardChestCollect = 255
     };
 
     enum CreatureType

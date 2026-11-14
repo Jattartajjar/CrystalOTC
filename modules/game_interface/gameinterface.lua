@@ -1351,7 +1351,7 @@ local function addUseThingMenuOptions(menu, thing, shortcuts)
 
 	if thing:getId() == 19250 then
 		menu:addOption(tr("Collect All"), function()
-			g_game.sendRewardCollectAll(thing:getPosition(), thing:getId(), thing:getStackPos())
+			g_game.sendRewardCollectAll(thing:getPosition(), thing:getId(), math.max(0, thing:getStackPos() or 0))
 		end)
 	end
 

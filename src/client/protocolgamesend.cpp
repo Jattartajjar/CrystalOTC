@@ -1121,6 +1121,16 @@ void ProtocolGame::sendSeekInContainer(const uint8_t containerId, const uint16_t
     send(msg);
 }
 
+void ProtocolGame::sendRewardCollectAll(const Position& position, const uint16_t itemId, const uint8_t stackpos)
+{
+    const auto& msg = std::make_shared<OutputMessage>();
+    msg->addU8(Proto::ClientRewardChestCollect);
+    addPosition(msg, position);
+    msg->addU16(itemId);
+    msg->addU8(stackpos);
+    send(msg);
+}
+
 void ProtocolGame::sendInspectionNormalObject(const Position& position)
 {
     const auto& msg = std::make_shared<OutputMessage>();
